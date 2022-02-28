@@ -63,11 +63,11 @@ extern "C" {
 /*
  * MGMT event opcodes.
  */
-#define MGMT_EVT_OP_CMD_RECV	0x01
-#define MGMT_EVT_OP_CMD_STATUS	0x02
-#define MGMT_EVT_OP_CMD_DONE	0x03
-#define MGMT_EVT_OP_RSP_RECV	0x04
-#define MGMT_EVT_OP_NOTI_RECV	0x05
+#define MGMT_EVT_OP_CMD_RECV			0x01
+#define MGMT_EVT_OP_CMD_STATUS			0x02
+#define MGMT_EVT_OP_CMD_DONE			0x03
+#define MGMT_EVT_OP_RSP_RECV			0x04
+#define MGMT_EVT_OP_NOTIFICATION_RECV	0x05
 
 struct mgmt_hdr {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__

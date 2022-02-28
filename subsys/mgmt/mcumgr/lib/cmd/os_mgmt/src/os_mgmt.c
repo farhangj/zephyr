@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <logging/log.h>
-LOG_MODULE_REGISTER(os_mgmt, 4);
+LOG_MODULE_REGISTER(os_mgmt, CONFIG_MGMT_OS_LOG_LEVEL);
 
 #include <sys/util.h>
 #include <assert.h>
@@ -209,7 +209,7 @@ os_mgmt_reset(struct mgmt_ctxt *ctxt)
 static const struct mgmt_handler os_mgmt_group_handlers[] = {
 #if OS_MGMT_ECHO
 	[OS_MGMT_ID_ECHO] = {
-		os_mgmt_echo, os_mgmt_echo, true
+		os_mgmt_echo, os_mgmt_echo, NULL, true
 	},
 #endif
 #if OS_MGMT_TASKSTAT
