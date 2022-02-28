@@ -215,8 +215,7 @@ int mcumgr_serial_tx_frame(const uint8_t *data, bool first, int len,
 	 * byte long is paired with first byte of input buffer to form triplet for Base64 encoding.
 	 */
 	if (first) {
-		/* The size of the CRC16 should be added to packet length */
-		u16 = sys_cpu_to_be16(len + 2);
+		u16 = sys_cpu_to_be16(len + sizeof(crc));
 		memcpy(raw, &u16, sizeof(u16));
 		raw[2] = data[0];
 
