@@ -17,11 +17,15 @@ extern "C" {
 /* MTU for newtmgr responses */
 #define MGMT_MAX_MTU		1024
 
-/** Opcodes; encoded in first byte of header. */
-#define MGMT_OP_READ		0
-#define MGMT_OP_READ_RSP	1
-#define MGMT_OP_WRITE		2
-#define MGMT_OP_WRITE_RSP	3
+/** Opcodes; encoded in first byte of header.
+ * From client is even, from server is odd.
+ */
+#define MGMT_OP_READ			0
+#define MGMT_OP_READ_RSP		1
+#define MGMT_OP_WRITE			2
+#define MGMT_OP_WRITE_RSP		3
+#define MGMT_OP_NOTIFY_SERVER	4 /* write without response */
+#define MGMT_OP_NOTIFY_CLIENT	5 /* from server */
 
 /**
  * The first 64 groups are reserved for system level mcumgr commands.
@@ -62,6 +66,8 @@ extern "C" {
 #define MGMT_EVT_OP_CMD_RECV	0x01
 #define MGMT_EVT_OP_CMD_STATUS	0x02
 #define MGMT_EVT_OP_CMD_DONE	0x03
+#define MGMT_EVT_OP_RSP_RECV	0x04
+#define MGMT_EVT_OP_NOTI_RECV	0x05
 
 struct mgmt_hdr {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -219,6 +225,7 @@ struct mgmt_ctxt {
 	struct CborEncoder encoder;
 	struct CborParser parser;
 	struct CborValue it;
+	struct mgmt_hdr hdr;
 };
 
 /** @typedef mgmt_handler_fn
@@ -239,6 +246,7 @@ typedef int (*mgmt_handler_fn)(struct mgmt_ctxt *ctxt);
 struct mgmt_handler {
 	mgmt_handler_fn mh_read;
 	mgmt_handler_fn mh_write;
+	mgmt_handler_fn mh_notify;
 	bool use_custom_cbor_encoder;
 };
 
@@ -340,11 +348,18 @@ int mgmt_streamer_init_writer(struct mgmt_streamer *streamer, void *buf);
 void mgmt_streamer_free_buf(struct mgmt_streamer *streamer, void *buf);
 
 /**
- * @brief Registers a full command group.
+ * @brief Registers a full command group for the server.
  *
  * @param group The group to register.
  */
 void mgmt_register_group(struct mgmt_group *group);
+
+/**
+ * @brief Registers a full command group for the client.
+ *
+ * @param group The group to register.
+ */
+void mgmt_register_client_group(struct mgmt_group *group);
 
 /**
  * @brief Unregisters a full command group.
@@ -354,7 +369,7 @@ void mgmt_register_group(struct mgmt_group *group);
 void mgmt_unregister_group(struct mgmt_group *group);
 
 /**
- * @brief Finds a registered command handler.
+ * @brief Finds a registered command handler for the server.
  *
  * @param group_id	The group of the command to find.
  * @param command_id	The ID of the command to find.
@@ -363,6 +378,17 @@ void mgmt_unregister_group(struct mgmt_group *group);
  *		NULL on failure.
  */
 const struct mgmt_handler *mgmt_find_handler(uint16_t group_id, uint16_t command_id);
+
+/**
+ * @brief Finds a registered command handler for the client.
+ *
+ * @param group_id	The group of the command to find.
+ * @param command_id	The ID of the command to find.
+ *
+ * @return	The requested command handler on success;
+ *		NULL on failure.
+ */
+const struct mgmt_handler *mgmt_find_client_handler(uint16_t group_id, uint16_t command_id);
 
 /**
  * @brief Encodes a response status into the specified management context.
@@ -379,10 +405,12 @@ int mgmt_write_rsp_status(struct mgmt_ctxt *ctxt, int status);
  *
  * @param ctxt		The context object to initialize.
  * @param streamer	The streamer that will be used with the context.
+ * @param hdr		Management header for the message.
  *
  * @return 0 on success, MGMT_ERR_[...] code on failure.
  */
-int mgmt_ctxt_init(struct mgmt_ctxt *ctxt, struct mgmt_streamer *streamer);
+int mgmt_ctxt_init(struct mgmt_ctxt *ctxt, struct mgmt_streamer *streamer,
+		   const struct mgmt_hdr *hdr);
 
 /**
  * @brief Converts a CBOR status code to a MGMT_ERR_[...] code.

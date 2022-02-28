@@ -87,7 +87,7 @@ smp_build_err_rsp(struct smp_streamer *streamer,
 	struct mgmt_hdr rsp_hdr;
 	int rc;
 
-	rc = mgmt_ctxt_init(&cbuf, &streamer->mgmt_stmr);
+    rc = mgmt_ctxt_init(&cbuf, &streamer->mgmt_stmr, req_hdr);
 	if (rc != 0) {
 		return rc;
 	}
@@ -194,6 +194,51 @@ smp_handle_single_payload(struct mgmt_ctxt *cbuf, const struct mgmt_hdr *req_hdr
 	return mgmt_err_from_cbor(rc);
 }
 
+static int
+smp_handle_response(struct smp_streamer *streamer,
+			       const struct mgmt_hdr *rsp_hdr)
+{
+	struct mgmt_ctxt cbuf;
+	const struct mgmt_handler *handler;
+	mgmt_handler_fn handler_fn;
+	int rc;
+
+	rc = mgmt_ctxt_init(&cbuf, &streamer->mgmt_stmr, rsp_hdr);
+	if (rc != 0) {
+		return rc;
+	}
+
+	handler = mgmt_find_client_handler(rsp_hdr->nh_group, rsp_hdr->nh_id);
+	if (handler == NULL) {
+		return MGMT_ERR_ENOTSUP;
+	}
+
+	switch (rsp_hdr->nh_op) {
+	case MGMT_OP_READ_RSP:
+		handler_fn = handler->mh_read;
+		break;
+
+	case MGMT_OP_WRITE_RSP:
+		handler_fn = handler->mh_write;
+		break;
+
+	case MGMT_OP_NOTIFY_CLIENT:
+		handler_fn = handler->mh_notify;
+		break;
+
+	default:
+		return MGMT_ERR_EINVAL;
+	}
+
+	if (handler_fn) {
+		rc = handler_fn(&cbuf);
+	} else {
+		rc = MGMT_ERR_ENOTSUP;
+	}
+
+	return rc;
+}
+
 /**
  * Processes a single SMP request and generates a complete response (i.e.,
  * header and payload).  On success, the response is written using the supplied
@@ -213,7 +258,7 @@ smp_handle_single_req(struct smp_streamer *streamer, const struct mgmt_hdr *req_
 	struct mgmt_hdr rsp_hdr;
 	int rc;
 
-	rc = mgmt_ctxt_init(&cbuf, &streamer->mgmt_stmr);
+    rc = mgmt_ctxt_init(&cbuf, &streamer->mgmt_stmr, req_hdr);
 	if (rc != 0) {
 		return rc;
 	}
@@ -296,37 +341,21 @@ smp_on_err(struct smp_streamer *streamer, const struct mgmt_hdr *req_hdr,
  *
  * @return 0 on success, MGMT_ERR_[...] code on failure.
  */
-int
-smp_process_request_packet(struct smp_streamer *streamer, void *req)
+static int
+smp_process_command_packet(struct smp_streamer *streamer, void *pkt,
+				       struct mgmt_hdr *pkt_hdr)
 {
-	struct mgmt_hdr req_hdr;
 	struct mgmt_evt_op_cmd_done_arg cmd_done_arg;
 	void *rsp;
-	bool valid_hdr, handler_found;
+    bool handler_found;
 	int rc;
 
 	rsp = NULL;
-	valid_hdr = true;
 
 	while (1) {
 		handler_found = false;
 
-		rc = mgmt_streamer_init_reader(&streamer->mgmt_stmr, req);
-		if (rc != 0) {
-			valid_hdr = false;
-			break;
-		}
-
-		/* Read the management header and strip it from the request. */
-		rc = smp_read_hdr(streamer, &req_hdr);
-		if (rc != 0) {
-			valid_hdr = false;
-			break;
-		}
-		mgmt_ntoh_hdr(&req_hdr);
-		mgmt_streamer_trim_front(&streamer->mgmt_stmr, req, MGMT_HDR_SIZE);
-
-		rsp = mgmt_streamer_alloc_rsp(&streamer->mgmt_stmr, req);
+        rsp = mgmt_streamer_alloc_rsp(&streamer->mgmt_stmr, pkt);
 		if (rsp == NULL) {
 			rc = MGMT_ERR_ENOMEM;
 			break;
@@ -338,7 +367,7 @@ smp_process_request_packet(struct smp_streamer *streamer, void *req)
 		}
 
 		/* Process the request payload and build the response. */
-		rc = smp_handle_single_req(streamer, &req_hdr, &handler_found);
+        rc = smp_handle_single_req(streamer, pkt_hdr, &handler_found);
 		if (rc != 0) {
 			break;
 		}
@@ -351,26 +380,95 @@ smp_process_request_packet(struct smp_streamer *streamer, void *req)
 		}
 
 		/* Trim processed request to free up space for subsequent responses. */
-		mgmt_streamer_trim_front(&streamer->mgmt_stmr, req, smp_align4(req_hdr.nh_len));
+        mgmt_streamer_trim_front(&streamer->mgmt_stmr, pkt,
+                                 smp_align4(pkt_hdr->nh_len));
 
 		cmd_done_arg.err = MGMT_ERR_EOK;
-		mgmt_evt(MGMT_EVT_OP_CMD_DONE, req_hdr.nh_group, req_hdr.nh_id,
+        mgmt_evt(MGMT_EVT_OP_CMD_DONE, pkt_hdr->nh_group, pkt_hdr->nh_id,
 				 &cmd_done_arg);
+
+		/* todo: is it really multiple? */
+        break;
 	}
 
-	if (rc != 0 && valid_hdr) {
-		smp_on_err(streamer, &req_hdr, req, rsp, rc);
+    if (rc != 0) {
+        smp_on_err(streamer, pkt_hdr, pkt, rsp, rc);
 
 		if (handler_found) {
 			cmd_done_arg.err = rc;
-			mgmt_evt(MGMT_EVT_OP_CMD_DONE, req_hdr.nh_group, req_hdr.nh_id,
+            mgmt_evt(MGMT_EVT_OP_CMD_DONE, pkt_hdr->nh_group, pkt_hdr->nh_id,
 				 &cmd_done_arg);
 		}
 
 		return rc;
 	}
 
-	mgmt_streamer_free_buf(&streamer->mgmt_stmr, req);
 	mgmt_streamer_free_buf(&streamer->mgmt_stmr, rsp);
+    return 0;
+}
+
+static int
+smp_process_response_packet(struct smp_streamer *streamer, void *pkt,
+				       struct mgmt_hdr *pkt_hdr)
+{
+    return smp_handle_response(streamer, pkt_hdr);
+}
+
+/**
+ * @brief Helper function
+ * @todo bool
+ * @param pkt_hdr
+ * @return true from server
+ * @return false from client
+ */
+static int
+from_client(struct mgmt_hdr *pkt_hdr)
+{
+    return ((pkt_hdr->nh_op % 2) == 0);
+}
+
+/**
+ * Processes all SMP packets in the stream.
+ *
+ * @param streamer              The streamer to use for reading, writing, and
+ *                                  transmitting.
+ * @param pkt                   A buffer containing the SMP packet.
+ *
+ * @return                      0 on success, MGMT_ERR_[...] code on failure.
+ */
+int smp_process_packet(struct smp_streamer *streamer, void *pkt)
+{
+	struct mgmt_hdr pkt_hdr;
+	int rc;
+
+	while (1) {
+		rc = mgmt_streamer_init_reader(&streamer->mgmt_stmr, pkt);
+		if (rc != 0) {
+			break;
+		}
+
+		/* Read the management header and strip it from the request. */
+		rc = smp_read_hdr(streamer, &pkt_hdr);
+		if (rc != 0) {
+			break;
+		}
+		mgmt_ntoh_hdr(&pkt_hdr);
+		mgmt_streamer_trim_front(&streamer->mgmt_stmr, pkt, MGMT_HDR_SIZE);
+
+		if (from_client(&pkt_hdr)) {
+			rc = smp_process_command_packet(streamer, pkt, &pkt_hdr);
+		} else {
+			rc = smp_process_response_packet(streamer, pkt, &pkt_hdr);
+		}
+		/* Is this the correct behavior ? */
+		/* The function defs are unclear on if this is a single packet
+		 * being processed or multiple
+		 */
+		if (rc != 0) {
+			break;
+		}
+	}
+
+	mgmt_streamer_free_buf(&streamer->mgmt_stmr, pkt);
 	return 0;
 }

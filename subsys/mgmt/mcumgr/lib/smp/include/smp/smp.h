@@ -54,7 +54,7 @@ struct smp_streamer {
 };
 
 /**
- * @brief Processes a single SMP request packet and sends all corresponding responses.
+ * @brief Processes a single SMP packet and sends all corresponding responses.
  *
  * Processes all SMP requests in an incoming packet.  Requests are processed
  * sequentially from the start of the packet to the end.  Each response is sent
@@ -67,7 +67,7 @@ struct smp_streamer {
  *
  * @return 0 on success, MGMT_ERR_[...] code on failure.
  */
-int smp_process_request_packet(struct smp_streamer *streamer, void *req);
+int smp_process_packet(struct smp_streamer *streamer, void *req);
 
 #ifdef __cplusplus
 }

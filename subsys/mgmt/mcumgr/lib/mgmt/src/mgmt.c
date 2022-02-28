@@ -11,8 +11,10 @@
 #include "mgmt/mgmt.h"
 
 static mgmt_on_evt_cb evt_cb;
-static struct mgmt_group *mgmt_group_list;
-static struct mgmt_group *mgmt_group_list_end;
+static struct mgmt_group *server_list_head;
+static struct mgmt_group *server_list_end;
+static struct mgmt_group *client_list_head;
+static struct mgmt_group *client_list_end;
 
 void *
 mgmt_streamer_alloc_rsp(struct mgmt_streamer *streamer, const void *req)
@@ -60,14 +62,14 @@ mgmt_streamer_free_buf(struct mgmt_streamer *streamer, void *buf)
 void
 mgmt_unregister_group(struct mgmt_group *group)
 {
-	struct mgmt_group *curr = mgmt_group_list, *prev = NULL;
+	struct mgmt_group *curr = server_list_head, *prev = NULL;
 
 	if (!group) {
 		return;
 	}
 
 	if (curr == group) {
-		mgmt_group_list = curr->mg_next;
+		server_list_head = curr->mg_next;
 		return;
 	}
 
@@ -82,14 +84,20 @@ mgmt_unregister_group(struct mgmt_group *group)
 
 	prev->mg_next = curr->mg_next;
 	if (curr->mg_next == NULL) {
-		mgmt_group_list_end = curr;
+		server_list_end = curr;
 	}
 }
 
 static struct mgmt_group *
-mgmt_find_group(uint16_t group_id, uint16_t command_id)
+mgmt_find_group(uint16_t group_id, uint16_t command_id, bool client)
 {
 	struct mgmt_group *group;
+
+	if (client) {
+		group = client_list_head;
+	} else {
+		group = server_list_head;
+	}
 
 	/*
 	 * Find the group with the specified group id, if one exists
@@ -97,14 +105,14 @@ mgmt_find_group(uint16_t group_id, uint16_t command_id)
 	 * that is not NULL. If that is not set, look for the group
 	 * with a command id that is set
 	 */
-	for (group = mgmt_group_list; group != NULL; group = group->mg_next) {
+	for (; group != NULL; group = group->mg_next) {
 		if (group->mg_group_id == group_id) {
 			if (command_id >= group->mg_handlers_count) {
 				return NULL;
 			}
 
 			if (!group->mg_handlers[command_id].mh_read &&
-				!group->mg_handlers[command_id].mh_write) {
+			    !group->mg_handlers[command_id].mh_write) {
 				continue;
 			}
 
@@ -118,12 +126,23 @@ mgmt_find_group(uint16_t group_id, uint16_t command_id)
 void
 mgmt_register_group(struct mgmt_group *group)
 {
-	if (mgmt_group_list_end == NULL) {
-		mgmt_group_list = group;
+	if (server_list_end == NULL) {
+		server_list_head = group;
 	} else {
-		mgmt_group_list_end->mg_next = group;
+		server_list_end->mg_next = group;
 	}
-	mgmt_group_list_end = group;
+	server_list_end = group;
+}
+
+void
+mgmt_register_client_group(struct mgmt_group *group)
+{
+	if (client_list_end == NULL) {
+		client_list_head = group;
+	} else {
+		client_list_end->mg_next = group;
+	}
+	client_list_end = group;
 }
 
 const struct mgmt_handler *
@@ -131,7 +150,20 @@ mgmt_find_handler(uint16_t group_id, uint16_t command_id)
 {
 	const struct mgmt_group *group;
 
-	group = mgmt_find_group(group_id, command_id);
+	group = mgmt_find_group(group_id, command_id, false);
+	if (!group) {
+		return NULL;
+	}
+
+	return &group->mg_handlers[command_id];
+}
+
+const struct mgmt_handler *
+mgmt_find_client_handler(uint16_t group_id, uint16_t command_id)
+{
+	const struct mgmt_group *group;
+
+	group = mgmt_find_group(group_id, command_id, true);
 	if (!group) {
 		return NULL;
 	}
@@ -170,7 +202,8 @@ mgmt_err_from_cbor(int cbor_status)
 }
 
 int
-mgmt_ctxt_init(struct mgmt_ctxt *ctxt, struct mgmt_streamer *streamer)
+mgmt_ctxt_init(struct mgmt_ctxt *ctxt, struct mgmt_streamer *streamer,
+		   const struct mgmt_hdr *hdr)
 {
 	int rc;
 
@@ -180,6 +213,8 @@ mgmt_ctxt_init(struct mgmt_ctxt *ctxt, struct mgmt_streamer *streamer)
 	}
 
 	cbor_encoder_init(&ctxt->encoder, streamer->writer, 0);
+
+	memcpy(&ctxt->hdr, hdr, sizeof(ctxt->hdr));
 
 	return 0;
 }
