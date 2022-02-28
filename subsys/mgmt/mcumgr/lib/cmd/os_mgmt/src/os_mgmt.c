@@ -3,6 +3,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <logging/log.h>
+LOG_MODULE_REGISTER(os_mgmt, 4);
 
 #include <sys/util.h>
 #include <assert.h>
@@ -19,6 +21,7 @@
  * Command handler: os echo
  */
 #if OS_MGMT_ECHO
+#if 0
 static int
 os_mgmt_echo(struct mgmt_ctxt *ctxt)
 {
@@ -54,6 +57,57 @@ os_mgmt_echo(struct mgmt_ctxt *ctxt)
 
 	return 0;
 }
+#else
+#include "net/buf.h"
+#include "mgmt/mcumgr/buf.h"
+#include "echo_cmd_decode.h"
+#include "echo_rsp_encode.h"
+
+static int os_mgmt_echo(struct mgmt_ctxt *ctxt)
+{
+	char rsp[256] = { 0 };
+
+	bool decode_ok;
+	bool encode_ok;
+	size_t decode_len = 0;
+	size_t encode_len = 0;
+	int write_status;
+	struct cbor_nb_reader *cnr = (struct cbor_nb_reader *)ctxt->parser.d;
+	size_t cbor_size = cnr->nb->len;
+	struct cbor_encoder_writer *w = ctxt->encoder.writer;
+	struct echo_cmd moo;
+	struct echo_rsp bar;
+
+	/* Use net buf because other layers have been stripped (Base64/SMP header) */
+	decode_ok = cbor_decode_echo_cmd(cnr->nb->data, cbor_size, &moo,
+					 &decode_len);
+	LOG_DBG("decode: %d len: %u size: %u", decode_ok, decode_len,
+		cbor_size);
+	LOG_HEXDUMP_DBG(cnr->nb->data, cbor_size, "cbor in");
+	LOG_HEXDUMP_DBG(moo._echo_cmd_d.value, moo._echo_cmd_d.len, "d");
+
+	bar._echo_rsp_r.value = moo._echo_cmd_d.value;
+	bar._echo_rsp_r.len = moo._echo_cmd_d.len;
+
+	encode_ok = cbor_encode_echo_rsp(rsp, sizeof(rsp), &bar, &encode_len);
+
+    LOG_DBG("Encode length %u", encode_len);
+	LOG_HEXDUMP_DBG(rsp, encode_len, "cbor out");
+
+	if (!encode_ok) {
+		LOG_ERR("Unable to encode response");
+		return MGMT_ERR_EPERUSER;
+	}
+
+	write_status = w->write(w, rsp, encode_len);
+	if (write_status != 0) {
+		LOG_ERR("Unable to write response %d", write_status);
+		return MGMT_ERR_EPERUSER + 1;
+	}
+
+	return MGMT_ERR_EOK;
+}
+#endif /* ECHO TEST */
 #endif
 
 #if OS_MGMT_TASKSTAT
@@ -155,7 +209,7 @@ os_mgmt_reset(struct mgmt_ctxt *ctxt)
 static const struct mgmt_handler os_mgmt_group_handlers[] = {
 #if OS_MGMT_ECHO
 	[OS_MGMT_ID_ECHO] = {
-		os_mgmt_echo, os_mgmt_echo
+		os_mgmt_echo, os_mgmt_echo, true
 	},
 #endif
 #if OS_MGMT_TASKSTAT
