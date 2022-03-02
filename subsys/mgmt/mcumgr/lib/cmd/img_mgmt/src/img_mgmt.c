@@ -512,8 +512,7 @@ img_mgmt_upload(struct mgmt_ctxt *ctxt)
 end:
 
 	img_mgmt_upload_log(req.off == 0, g_img_mgmt_state.off == g_img_mgmt_state.size, rc);
-	mgmt_evt(MGMT_EVT_OP_CMD_STATUS, MGMT_GROUP_ID_IMAGE, IMG_MGMT_ID_UPLOAD,
-			 &cmd_status_arg);
+	mgmt_evt(MGMT_EVT_OP_CMD_STATUS, &ctxt->hdr, &cmd_status_arg);
 
 	if (rc != 0) {
 		img_mgmt_dfu_stopped();

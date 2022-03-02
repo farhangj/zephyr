@@ -325,7 +325,6 @@ zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
 		.tx_rsp_cb = zephyr_smp_tx_rsp,
 	};
 
-	/* todo: make allocate cmd function */
 	cmd = NULL;
 	cmd = mgmt_streamer_alloc_rsp(&streamer.mgmt_stmr, cmd);
 	if (cmd == NULL) {

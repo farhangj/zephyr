@@ -32,26 +32,26 @@ LOG_MODULE_REGISTER(os_mgmt_client, CONFIG_MGMT_CLIENT_OS_LOG_LEVEL);
 #include "mgmt/mcumgr/buf.h"
 #include "echo_rsp_decode.h"
 
-#if OS_MGMT_CLIENT_ECHO
+#if CONFIG_OS_MGMT_CLIENT_ECHO
 static int os_mgmt_client_echo(struct mgmt_ctxt *ctxt);
 #endif
 
-#if OS_MGMT_CLIENT_RESET
+#if CONFIG_OS_MGMT_CLIENT_RESET
 static int os_mgmt_client_reset(struct mgmt_ctxt *ctxt);
 #endif
 
-#if OS_MGMT_CLIENT_TASKSTAT
+#if CONFIG_OS_MGMT_CLIENT_TASKSTAT
 static int os_mgmt_client_taskstat_read(struct mgmt_ctxt *ctxt);
 #endif
 
 static const struct mgmt_handler os_mgmt_client_group_handlers[] = {
-#if OS_MGMT_CLIENT_ECHO
+#if CONFIG_OS_MGMT_CLIENT_ECHO
 	[OS_MGMT_ID_ECHO] = { os_mgmt_client_echo, os_mgmt_client_echo, os_mgmt_client_echo },
 #endif
-#if OS_MGMT_CLIENT_TASKSTAT
+#if CONFIG_OS_MGMT_CLIENT_TASKSTAT
 	[OS_MGMT_ID_TASKSTAT] = { os_mgmt_client_taskstat_read, NULL },
 #endif
-#if OS_MGMT_CLIENT_RESET
+#if CONFIG_OS_MGMT_CLIENT_RESET
 	[OS_MGMT_ID_RESET] = { os_mgmt_client_reset, os_mgmt_client_reset },
 #endif
 };
@@ -66,34 +66,38 @@ static struct mgmt_group os_mgmt_client_group = {
 	.mg_group_id = MGMT_GROUP_ID_OS,
 };
 
-#if OS_MGMT_CLIENT_ECHO
+#if CONFIG_OS_MGMT_CLIENT_ECHO
 static int os_mgmt_client_echo(struct mgmt_ctxt *ctxt)
 {
 	bool decode_ok;
 	size_t decode_len = 0;
 	struct cbor_nb_reader *cnr = (struct cbor_nb_reader *)ctxt->parser.d;
 	size_t cbor_size = cnr->nb->len;
-	struct echo_rsp echo_decoded;
+	struct echo_rsp echo_rsp;
 
 	/* Use net buf because other layers have been stripped (Base64/SMP header) */
-	decode_ok = cbor_decode_echo_rsp(cnr->nb->data, cbor_size, &echo_decoded, &decode_len);
+	decode_ok = cbor_decode_echo_rsp(cnr->nb->data, cbor_size, &echo_rsp, &decode_len);
 	LOG_DBG("decode: %d len: %u size: %u", decode_ok, decode_len, cbor_size);
 	LOG_HEXDUMP_DBG(cnr->nb->data, cbor_size, "Echo rxed by client");
-	LOG_HEXDUMP_DBG(echo_decoded._echo_rsp_r.value, echo_decoded._echo_rsp_r.len, "d");
+	LOG_HEXDUMP_DBG(echo_rsp._echo_rsp_r.value, echo_rsp._echo_rsp_r.len, "d");
+	if (!decode_ok) {
+		return MGMT_ERR_DECODE;
+	}
 
-	mgmt_evt(MGMT_EVT_OP_RSP_RECV, ctxt->hdr.nh_group, ctxt->hdr.nh_id, &echo_decoded);
+	mgmt_evt(MGMT_EVT_OP_RSP_RECV, &ctxt->hdr, &echo_rsp);
+
 	return MGMT_ERR_EOK;
 }
 #endif
 
-#if OS_MGMT_CLIENT_TASKSTAT
+#if CONFIG_OS_MGMT_CLIENT_TASKSTAT
 static int os_mgmt_client_taskstat_read(struct mgmt_ctxt *ctxt)
 {
 	return MGMT_ERR_EOK;
 }
 #endif
 
-#if OS_MGMT_CLIENT_RESET
+#if CONFIG_OS_MGMT_CLIENT_RESET
 static int os_mgmt_client_reset(struct mgmt_ctxt *ctxt)
 {
 	return MGMT_ERR_EOK;

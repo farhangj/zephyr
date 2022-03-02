@@ -9,12 +9,19 @@
 #include "tinycbor/cbor.h"
 #include "mgmt/endian.h"
 #include "mgmt/mgmt.h"
+#include <sys/atomic.h>
 
 static mgmt_on_evt_cb evt_cb;
 static struct mgmt_group *server_list_head;
 static struct mgmt_group *server_list_end;
+
+#ifdef CONFIG_MCUMGR_CLIENT
+atomic_t mgmt_sequence = ATOMIC_INIT(0);
+
 static struct mgmt_group *client_list_head;
 static struct mgmt_group *client_list_end;
+#endif
+
 
 void *
 mgmt_streamer_alloc_rsp(struct mgmt_streamer *streamer, const void *req)
@@ -94,7 +101,7 @@ mgmt_find_group(uint16_t group_id, uint16_t command_id, bool client)
 	struct mgmt_group *group;
 
 	if (client) {
-		group = client_list_head;
+		group = CONFIG_MCUMGR_CLIENT ? client_list_head : NULL;
 	} else {
 		group = server_list_head;
 	}
@@ -134,6 +141,7 @@ mgmt_register_group(struct mgmt_group *group)
 	server_list_end = group;
 }
 
+#ifdef CONFIG_MCUMGR_CLIENT
 void
 mgmt_register_client_group(struct mgmt_group *group)
 {
@@ -144,6 +152,7 @@ mgmt_register_client_group(struct mgmt_group *group)
 	}
 	client_list_end = group;
 }
+#endif
 
 const struct mgmt_handler *
 mgmt_find_handler(uint16_t group_id, uint16_t command_id)
@@ -240,9 +249,17 @@ mgmt_register_evt_cb(mgmt_on_evt_cb cb)
 }
 
 void
-mgmt_evt(uint8_t opcode, uint16_t group, uint8_t id, void *arg)
+mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg)
 {
 	if (evt_cb) {
-		evt_cb(opcode, group, id, arg);
+		evt_cb(opcode, hdr, arg);
 	}
 }
+
+#ifdef CONFIG_MCUMGR_CLIENT
+uint8_t
+mgmt_get_sequence(void)
+{
+	return (uint8_t)atomic_inc(&mgmt_sequence);
+}
+#endif

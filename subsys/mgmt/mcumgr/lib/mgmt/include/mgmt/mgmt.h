@@ -18,7 +18,7 @@ extern "C" {
 #define MGMT_MAX_MTU		1024
 
 /** Opcodes; encoded in first byte of header.
- * From client is even, from server is odd.
+ * From client is even (command), from server is odd (response).
  */
 #define MGMT_OP_READ			0
 #define MGMT_OP_READ_RSP		1
@@ -56,6 +56,8 @@ extern "C" {
 #define MGMT_ERR_EMSGSIZE	7	   /* Response too large. */
 #define MGMT_ERR_ENOTSUP	8	   /* Command not supported. */
 #define MGMT_ERR_ECORRUPT	9	   /* Corrupt */
+#define MGMT_ERR_DECODE		10
+#define MGMT_ERR_ENCODE		11
 #define MGMT_ERR_EPERUSER	256
 
 #define MGMT_HDR_SIZE		8
@@ -67,7 +69,9 @@ extern "C" {
 #define MGMT_EVT_OP_CMD_STATUS			0x02
 #define MGMT_EVT_OP_CMD_DONE			0x03
 #define MGMT_EVT_OP_RSP_RECV			0x04
-#define MGMT_EVT_OP_NOTIFICATION_RECV	0x05
+#define MGMT_EVT_OP_RSP_STATUS			0x05
+#define MGMT_EVT_OP_RSP_DONE			0x06
+#define MGMT_EVT_OP_CMD_SENT			0x07
 
 struct mgmt_hdr {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -107,11 +111,11 @@ struct mgmt_evt_op_cmd_done_arg {
  * This callback function is used to notify application about mgmt event.
  *
  * @param opcode	MGMT_EVT_OP_[...].
- * @param group		MGMT_GROUP_ID_[...].
- * @param id		Message ID within group.
+ * @param hdr		Management header
  * @param arg		Optional event argument.
  */
-typedef void (*mgmt_on_evt_cb)(uint8_t opcode, uint16_t group, uint8_t id, void *arg);
+typedef void (*mgmt_on_evt_cb)(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg);
+
 
 /** @typedef mgmt_alloc_rsp_fn
  * @brief Allocates a buffer suitable for holding a response.
@@ -446,11 +450,17 @@ void mgmt_register_evt_cb(mgmt_on_evt_cb cb);
  * @brief This function is called to notify about mgmt event.
  *
  * @param opcode	MGMT_EVT_OP_[...].
- * @param group		MGMT_GROUP_ID_[...].
- * @param id		Message ID within group.
+ * @param hdr		The mcumgr header
  * @param arg		Optional event argument.
  */
-void mgmt_evt(uint8_t opcode, uint16_t group, uint8_t id, void *arg);
+void mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg);
+
+/**
+ * @brief Get sequence number for management client command
+ *
+ * @return uint8_t
+ */
+uint8_t mgmt_get_sequence(void);
 
 #ifdef __cplusplus
 }
