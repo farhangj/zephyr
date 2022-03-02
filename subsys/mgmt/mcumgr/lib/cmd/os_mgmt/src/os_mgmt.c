@@ -69,27 +69,27 @@ static int os_mgmt_echo(struct mgmt_ctxt *ctxt)
 
 	bool decode_ok;
 	bool encode_ok;
-	size_t decode_len = 0;
 	size_t encode_len = 0;
 	int write_status;
 	struct cbor_nb_reader *cnr = (struct cbor_nb_reader *)ctxt->parser.d;
 	size_t cbor_size = cnr->nb->len;
 	struct cbor_encoder_writer *w = ctxt->encoder.writer;
-	struct echo_cmd moo;
-	struct echo_rsp bar;
+	struct echo_cmd cmd;
+	size_t decode_len = sizeof(cmd);
+	struct echo_rsp echo_rsp;
 
 	/* Use net buf because other layers have been stripped (Base64/SMP header) */
-	decode_ok = cbor_decode_echo_cmd(cnr->nb->data, cbor_size, &moo,
+	decode_ok = cbor_decode_echo_cmd(cnr->nb->data, cbor_size, &cmd,
 					 &decode_len);
 	LOG_DBG("decode: %d len: %u size: %u", decode_ok, decode_len,
 		cbor_size);
 	LOG_HEXDUMP_DBG(cnr->nb->data, cbor_size, "cbor in");
-	LOG_HEXDUMP_DBG(moo._echo_cmd_d.value, moo._echo_cmd_d.len, "d");
+	LOG_HEXDUMP_DBG(cmd._echo_cmd_d.value, cmd._echo_cmd_d.len, "d");
 
-	bar._echo_rsp_r.value = moo._echo_cmd_d.value;
-	bar._echo_rsp_r.len = moo._echo_cmd_d.len;
+	echo_rsp._echo_rsp_r.value = cmd._echo_cmd_d.value;
+	echo_rsp._echo_rsp_r.len = cmd._echo_cmd_d.len;
 
-	encode_ok = cbor_encode_echo_rsp(rsp, sizeof(rsp), &bar, &encode_len);
+	encode_ok = cbor_encode_echo_rsp(rsp, sizeof(rsp), &echo_rsp, &encode_len);
 
     LOG_DBG("Encode length %u", encode_len);
 	LOG_HEXDUMP_DBG(rsp, encode_len, "cbor out");
