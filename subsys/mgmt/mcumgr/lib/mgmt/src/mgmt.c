@@ -11,7 +11,9 @@
 #include "mgmt/mgmt.h"
 #include <sys/atomic.h>
 
-static mgmt_on_evt_cb evt_cb;
+static atomic_t evt_users = ATOMIC_INIT(0);
+static mgmt_on_evt_cb evt_cb[CONFIG_MCUMGR_EVENT_CALLBACK_MAX_USERS];
+
 static struct mgmt_group *server_list_head;
 static struct mgmt_group *server_list_end;
 
@@ -242,18 +244,31 @@ mgmt_hton_hdr(struct mgmt_hdr *hdr)
 	hdr->nh_group = htons(hdr->nh_group);
 }
 
-void
+int
 mgmt_register_evt_cb(mgmt_on_evt_cb cb)
 {
-	evt_cb = cb;
+	int i = (int)atomic_inc(&evt_users);
+
+	if (i < CONFIG_MCUMGR_EVENT_CALLBACK_MAX_USERS) {
+		evt_cb[i] = cb;
+		return 0;
+	} else {
+		return MGMT_ERR_ENOMEM;
+	}
 }
 
 void
 mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg)
 {
-	if (evt_cb) {
-		evt_cb(opcode, hdr, arg);
+	int i;
+	int users = (int)atomic_get(&evt_users);
+
+	for (i = 0; i < users; i++) {
+		if (evt_cb[i]) {
+			evt_cb[i](opcode, hdr, arg);
+		}
 	}
+}
 }
 
 #ifdef CONFIG_MCUMGR_CLIENT

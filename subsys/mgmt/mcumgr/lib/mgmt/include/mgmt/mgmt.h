@@ -440,8 +440,9 @@ void mgmt_hton_hdr(struct mgmt_hdr *hdr);
  * @brief Register event callback function.
  *
  * @param cb Callback function.
+ * @return  0 on success, MGMT_ERR_[...] code on failure.
  */
-void mgmt_register_evt_cb(mgmt_on_evt_cb cb);
+int mgmt_register_evt_cb(mgmt_on_evt_cb cb);
 
 /**
  * @brief This function is called to notify about mgmt event.
