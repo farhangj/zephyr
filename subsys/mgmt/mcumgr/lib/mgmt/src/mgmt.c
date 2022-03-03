@@ -269,6 +269,12 @@ mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg)
 		}
 	}
 }
+
+
+bool
+is_cmd(const struct mgmt_hdr *hdr)
+{
+    return ((hdr->nh_op % 2) == 0);
 }
 
 #ifdef CONFIG_MCUMGR_CLIENT

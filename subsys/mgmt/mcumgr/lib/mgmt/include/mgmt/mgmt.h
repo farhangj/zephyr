@@ -460,6 +460,14 @@ void mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg);
  */
 uint8_t mgmt_get_sequence(void);
 
+/**
+ * @brief Use header to determine if a message is a command or a response.
+ *
+ * @param hdr management header
+ * @return true from client (cmd)
+ * @return false from server (response)
+ */
+bool is_cmd(const struct mgmt_hdr *hdr);
 
 /**
  * @brief Get string representation of management operation

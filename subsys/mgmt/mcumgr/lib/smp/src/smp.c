@@ -406,18 +406,6 @@ smp_process_response_packet(struct smp_streamer *streamer, void *pkt,
 }
 
 /**
- * @brief Helper function
- * @param hdr SMP management header
- * @return true from server
- * @return false from client
- */
-static bool
-is_cmd(struct mgmt_hdr *hdr)
-{
-    return ((hdr->nh_op % 2) == 0);
-}
-
-/**
  * Processes all SMP packets in the stream. Requests are processed
  * sequentially from the start of the packet to the end.  Each response is sent
  * individually in its own packet.  If a request elicits an error response,
