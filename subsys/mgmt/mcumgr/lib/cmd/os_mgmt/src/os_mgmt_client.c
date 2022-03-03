@@ -46,7 +46,7 @@ static int os_mgmt_client_taskstat_read(struct mgmt_ctxt *ctxt);
 
 static const struct mgmt_handler os_mgmt_client_group_handlers[] = {
 #if CONFIG_OS_MGMT_CLIENT_ECHO
-	[OS_MGMT_ID_ECHO] = { os_mgmt_client_echo, os_mgmt_client_echo, os_mgmt_client_echo },
+	[OS_MGMT_ID_ECHO] = { os_mgmt_client_echo, os_mgmt_client_echo },
 #endif
 #if CONFIG_OS_MGMT_CLIENT_TASKSTAT
 	[OS_MGMT_ID_TASKSTAT] = { os_mgmt_client_taskstat_read, NULL },

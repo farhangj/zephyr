@@ -209,7 +209,7 @@ os_mgmt_reset(struct mgmt_ctxt *ctxt)
 static const struct mgmt_handler os_mgmt_group_handlers[] = {
 #if OS_MGMT_ECHO
 	[OS_MGMT_ID_ECHO] = {
-		os_mgmt_echo, os_mgmt_echo, NULL, true
+		os_mgmt_echo, os_mgmt_echo, true
 	},
 #endif
 #if OS_MGMT_TASKSTAT

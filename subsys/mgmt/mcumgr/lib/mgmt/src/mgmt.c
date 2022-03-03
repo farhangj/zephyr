@@ -16,7 +16,7 @@ static struct mgmt_group *server_list_head;
 static struct mgmt_group *server_list_end;
 
 #ifdef CONFIG_MCUMGR_CLIENT
-atomic_t mgmt_sequence = ATOMIC_INIT(0);
+static atomic_t mgmt_sequence = ATOMIC_INIT(0);
 
 static struct mgmt_group *client_list_head;
 static struct mgmt_group *client_list_end;

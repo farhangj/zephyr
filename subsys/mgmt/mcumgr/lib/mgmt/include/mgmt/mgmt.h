@@ -24,8 +24,6 @@ extern "C" {
 #define MGMT_OP_READ_RSP		1
 #define MGMT_OP_WRITE			2
 #define MGMT_OP_WRITE_RSP		3
-#define MGMT_OP_NOTIFY_SERVER	4 /* write without response */
-#define MGMT_OP_NOTIFY_CLIENT	5 /* from server */
 
 /**
  * The first 64 groups are reserved for system level mcumgr commands.
@@ -250,7 +248,6 @@ typedef int (*mgmt_handler_fn)(struct mgmt_ctxt *ctxt);
 struct mgmt_handler {
 	mgmt_handler_fn mh_read;
 	mgmt_handler_fn mh_write;
-	mgmt_handler_fn mh_notify;
 	bool use_custom_cbor_encoder;
 };
 

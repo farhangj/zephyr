@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <logging/log.h>
-LOG_MODULE_REGISTER(smp, 4);
+LOG_MODULE_REGISTER(mcumgr_smp, CONFIG_MCUMGR_LOG_LEVEL);
 
 /** SMP - Simple Management Protocol. */
 
@@ -222,13 +222,6 @@ smp_handle_response(struct smp_streamer *streamer,
 		handler_fn = handler->mh_write;
 		break;
 
-#if 0
-	/* todo: or should this be done as a read rsp with a flag? */
-	case MGMT_OP_NOTIFY_CLIENT:
-		handler_fn = handler->mh_notify;
-		break;
-#endif
-
 	default:
 		return MGMT_ERR_EINVAL;
 	}
@@ -419,14 +412,9 @@ smp_process_response_packet(struct smp_streamer *streamer, void *pkt,
  * @return false from client
  */
 static bool
-from_client(struct mgmt_hdr *hdr)
+is_cmd(struct mgmt_hdr *hdr)
 {
     return ((hdr->nh_op % 2) == 0);
-}
-
-static void foo_man(void)
-{
-	LOG_DBG("group error");
 }
 
 /**
@@ -462,7 +450,7 @@ int smp_process_packet(struct smp_streamer *streamer, void *pkt)
 		mgmt_ntoh_hdr(&pkt_hdr);
 		mgmt_streamer_trim_front(&streamer->mgmt_stmr, pkt, MGMT_HDR_SIZE);
 
-		if (from_client(&pkt_hdr)) {
+		if (is_cmd(&pkt_hdr)) {
 			rc.err = smp_process_command_packet(streamer, pkt, &pkt_hdr);
 			event = MGMT_EVT_OP_CMD_DONE;
 		} else {
