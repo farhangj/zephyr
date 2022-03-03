@@ -263,3 +263,108 @@ mgmt_get_sequence(void)
 	return (uint8_t)atomic_inc(&mgmt_sequence);
 }
 #endif
+
+#ifdef CONFIG_MCUMGR_STATUS_STRINGS
+const char *
+mgmt_get_string_operation(uint8_t operation)
+{
+	switch (operation) {
+	case MGMT_OP_READ:
+		return "Read";
+	case MGMT_OP_READ_RSP:
+		return "Read Rsp";
+	case MGMT_OP_WRITE:
+		return "Write";
+	case MGMT_OP_WRITE_RSP:
+		return "Write Rsp";
+	default:
+		return "?";
+	}
+}
+
+const char *
+mgmt_get_string_group(uint16_t group)
+{
+	switch (group) {
+	case MGMT_GROUP_ID_OS:
+		return "OS";
+	case MGMT_GROUP_ID_IMAGE:
+		return "Image";
+	case MGMT_GROUP_ID_STAT:
+		return "Stat";
+	case MGMT_GROUP_ID_CONFIG:
+		return "Config";
+	case MGMT_GROUP_ID_LOG:
+		return "Log";
+	case MGMT_GROUP_ID_CRASH:
+		return "Crash";
+	case MGMT_GROUP_ID_SPLIT:
+		return "Split";
+	case MGMT_GROUP_ID_RUN:
+		return "Run";
+	case MGMT_GROUP_ID_FS:
+		return "FS";
+	case MGMT_GROUP_ID_SHELL:
+		return "Shell";
+	default:
+		return "?";
+	}
+}
+
+const char *
+mgmt_get_string_err(int err)
+{
+	switch (err) {
+	case MGMT_ERR_EOK:
+		return "0-OK";
+	case MGMT_ERR_EUNKNOWN:
+		return "1-Unknown";
+	case MGMT_ERR_ENOMEM:
+		return "2-No Memory";
+	case MGMT_ERR_EINVAL:
+		return "3-Invalid Argument";
+	case MGMT_ERR_ETIMEOUT:
+		return "4-Timeout";
+	case MGMT_ERR_ENOENT:
+		return "5-No Entry";
+	case MGMT_ERR_EBADSTATE:
+		return "6-Current state disallows command";
+	case MGMT_ERR_EMSGSIZE:
+		return "7-Response too large";
+	case MGMT_ERR_ENOTSUP:
+		return "8-Command not supported";
+	case MGMT_ERR_ECORRUPT:
+		return "9-Corrupt ";
+	case MGMT_ERR_DECODE:
+		return "10-Decode";
+	case MGMT_ERR_ENCODE:
+		return "11-Encode";
+	default:
+		return "?";
+	}
+}
+
+const char *
+mgmt_get_string_event(uint8_t event)
+{
+	switch (event) {
+	case MGMT_EVT_OP_CMD_RECV:
+		return "Cmd Recv";
+	case MGMT_EVT_OP_CMD_STATUS:
+		return "Cmd Status";
+	case MGMT_EVT_OP_CMD_DONE:
+		return "Cmd Done";
+	case MGMT_EVT_OP_RSP_RECV:
+		return "Rsp Recv";
+	case MGMT_EVT_OP_RSP_STATUS:
+		return "Rsp Status";
+	case MGMT_EVT_OP_RSP_DONE:
+		return "Rsp Done";
+	case MGMT_EVT_OP_CMD_SENT:
+		return "Cmd Sent";
+	default:
+		return "?";
+	}
+}
+
+#endif /* CONFIG_MCUMGR_STATUS_STRINGS */

@@ -459,6 +459,41 @@ void mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg);
  */
 uint8_t mgmt_get_sequence(void);
 
+
+/**
+ * @brief Get string representation of management operation
+ *
+ * @param operation
+ * @return const char*
+ */
+const char *mgmt_get_string_operation(uint8_t operation);
+
+/**
+ * @brief Get string representation of management group
+ *
+ * @param group
+ * @return const char*
+ */
+const char *mgmt_get_string_group(uint16_t group);
+
+/**
+ * @brief Get string representation of management error
+ *
+ * @param err
+ * @return const char*
+ */
+const char *mgmt_get_string_err(int err);
+
+/**
+ * @brief Get string representation of management event
+ * @note Defind as week so it can be overridden in application.
+ *
+ * @param event
+ * @return const char*
+ */
+const char *mgmt_get_string_event(uint8_t event);
+
+
 #ifdef __cplusplus
 }
 #endif

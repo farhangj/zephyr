@@ -588,4 +588,7 @@ config MCUMGR_BUF_USER_DATA_SIZE
 config MCUMGR_CLIENT
 	bool "Enable MCUMGR Client"
 
+config MCUMGR_STATUS_STRINGS
+	bool "Enable generation of managment status strings"
+
 endif # MCUMGR
