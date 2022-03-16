@@ -89,6 +89,16 @@ struct mgmt_hdr {
 
 #define nmgr_hdr mgmt_hdr
 
+#define SET_NETWORK_HEADER(op, len, group, id) 	\
+	(struct mgmt_hdr) {					\
+		.nh_op = (op),					\
+		.nh_flags = 0,					\
+		.nh_len = htons(len),			\
+		.nh_group = htons(group),   	\
+		.nh_seq = mgmt_get_sequence(),	\
+		.nh_id = (id)					\
+	}
+
 /*
  * MGMT_EVT_OP_CMD_STATUS argument
  */
