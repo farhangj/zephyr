@@ -1,0 +1,26 @@
+
+result_code = int
+
+file_download_cmd = {
+    "off" : (offset:uint),
+    "name" : (tstr)
+}
+
+file_download_rsp = {
+    "off" : (offset:uint),
+    "data" : (bstr),
+    "rc" : (result_code),
+    ?"len" : (uint)
+}
+
+file_upload_cmd = {
+    "off" : (offset:uint),
+    "data" : (bstr),
+    "len" : (uint),
+    "name" : (tstr)
+}
+
+file_upload_rsp = {
+    "rc" : (result_code),
+    "off" : (uint)
+}
