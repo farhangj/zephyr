@@ -84,10 +84,10 @@ static int os_mgmt_echo(struct mgmt_ctxt *ctxt)
 	LOG_DBG("decode: %d len: %u size: %u", decode_ok, decode_len,
 		cbor_size);
 	LOG_HEXDUMP_DBG(cnr->nb->data, cbor_size, "cbor in");
-	LOG_HEXDUMP_DBG(cmd._echo_cmd_d.value, cmd._echo_cmd_d.len, "d");
+	LOG_HEXDUMP_DBG(cmd.d.value, cmd.d.len, "d");
 
-	echo_rsp._echo_rsp_r.value = cmd._echo_cmd_d.value;
-	echo_rsp._echo_rsp_r.len = cmd._echo_cmd_d.len;
+	echo_rsp.r.value = cmd.d.value;
+	echo_rsp.r.len = cmd.d.len;
 
 	encode_ok = cbor_encode_echo_rsp(rsp, sizeof(rsp), &echo_rsp, &encode_len);
 

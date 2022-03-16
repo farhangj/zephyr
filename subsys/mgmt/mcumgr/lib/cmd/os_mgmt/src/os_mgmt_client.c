@@ -79,7 +79,7 @@ static int os_mgmt_client_echo(struct mgmt_ctxt *ctxt)
 	decode_ok = cbor_decode_echo_rsp(cnr->nb->data, cbor_size, &echo_rsp, &decode_len);
 	LOG_DBG("decode: %d len: %u size: %u", decode_ok, decode_len, cbor_size);
 	LOG_HEXDUMP_DBG(cnr->nb->data, cbor_size, "Echo rxed by client");
-	LOG_HEXDUMP_DBG(echo_rsp._echo_rsp_r.value, echo_rsp._echo_rsp_r.len, "d");
+	LOG_HEXDUMP_DBG(echo_rsp.r.value, echo_rsp.r.len, "d");
 	if (!decode_ok) {
 		return MGMT_ERR_DECODE;
 	}
