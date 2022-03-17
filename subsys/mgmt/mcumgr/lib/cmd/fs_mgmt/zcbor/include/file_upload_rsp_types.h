@@ -22,9 +22,12 @@
  */
 #define DEFAULT_MAX_QTY 0
 
-struct file_upload_rsp {
-	int32_t _file_upload_rsp_rc;
-	uint32_t _file_upload_rsp_off;
+struct file_upload_rsp {
+
+	int32_t rc;
+
+	uint32_t off;
+
 };
 
 

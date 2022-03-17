@@ -23,9 +23,9 @@ static bool decode_file_upload_rsp(
 	struct zcbor_string tmp_str;
 
 	bool tmp_result = (((zcbor_map_start_decode(state) && (((((zcbor_tstr_expect(state, ((tmp_str.value = (uint8_t *)"rc", tmp_str.len = sizeof("rc") - 1, &tmp_str)))))
-	&& (zcbor_int32_decode(state, (&(*result)._file_upload_rsp_rc))))
+	&& (zcbor_int32_decode(state, (&(*result).rc))))
 	&& (((zcbor_tstr_expect(state, ((tmp_str.value = (uint8_t *)"off", tmp_str.len = sizeof("off") - 1, &tmp_str)))))
-	&& (zcbor_uint32_decode(state, (&(*result)._file_upload_rsp_off))))) || (zcbor_list_map_end_force_decode(state), false)) && zcbor_map_end_decode(state))));
+	&& (zcbor_uint32_decode(state, (&(*result).off))))) || (zcbor_list_map_end_force_decode(state), false)) && zcbor_map_end_decode(state))));
 
 	if (!tmp_result)
 		zcbor_trace();
