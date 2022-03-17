@@ -55,9 +55,10 @@ extern "C" {
 #define MGMT_ERR_EMSGSIZE	7	   /* Response too large. */
 #define MGMT_ERR_ENOTSUP	8	   /* Command not supported. */
 #define MGMT_ERR_ECORRUPT	9	   /* Corrupt */
-#define MGMT_ERR_DECODE		10
-#define MGMT_ERR_ENCODE		11
-#define MGMT_ERR_NOT_DONE   255		/* Multi-part command */
+#define MGMT_ERR_NO_CLIENT	10	   /* Client handler not found */
+#define MGMT_ERR_DECODE		11
+#define MGMT_ERR_ENCODE		12
+#define MGMT_ERR_NOT_DONE   255	   /* Multi-part command */
 #define MGMT_ERR_EPERUSER	256
 
 #define MGMT_HDR_SIZE		8

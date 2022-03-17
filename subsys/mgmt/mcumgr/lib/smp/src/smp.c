@@ -210,7 +210,7 @@ smp_handle_response(struct smp_streamer *streamer,
 
 	handler = mgmt_find_client_handler(rsp_hdr->nh_group, rsp_hdr->nh_id);
 	if (handler == NULL) {
-		return MGMT_ERR_ENOTSUP;
+		return MGMT_ERR_NO_CLIENT;
 	}
 
 	switch (rsp_hdr->nh_op) {

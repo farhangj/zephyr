@@ -36,8 +36,8 @@ LOG_MODULE_REGISTER(fs_mgmt_client, CONFIG_FS_MGMT_CLIENT_LOG_LEVEL);
 /**************************************************************************************************/
 /* Local Function Prototypes                                                                      */
 /**************************************************************************************************/
-static int download(struct mgmt_ctxt *ctxt);
-static int upload(struct mgmt_ctxt *ctxt);
+static int download_rsp_handler(struct mgmt_ctxt *ctxt);
+static int upload_rsp_handler(struct mgmt_ctxt *ctxt);
 
 static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, void *arg);
 
@@ -51,8 +51,8 @@ static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 /* clang-format off */
 static const struct mgmt_handler FS_MGMT_CLIENT_HANDLERS[] = {
 	[FS_MGMT_ID_FILE] = {
-		.mh_write = download,
-		.mh_read = upload,
+		.mh_read = download_rsp_handler,
+		.mh_write = upload_rsp_handler,
 		.use_custom_cbor_encoder = true
 	}
 };
@@ -122,24 +122,24 @@ static int send_cmd(struct mgmt_hdr *hdr, const void *cbor_data)
 	return r;
 }
 
-static int download(struct mgmt_ctxt *ctxt)
+static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 {
-	return MGMT_ERR_ENOTSUP;
+	return MGMT_ERR_NO_CLIENT;
 }
 
-static int upload(struct mgmt_ctxt *ctxt)
+static int upload_rsp_handler(struct mgmt_ctxt *ctxt)
 {
-	bool decode_ok;
+	uint_fast8_t decode_status;
 	size_t decode_len = 0;
 	struct cbor_nb_reader *cnr = (struct cbor_nb_reader *)ctxt->parser.d;
 	size_t cbor_size = cnr->nb->len;
 	struct file_upload_rsp file_upload_rsp;
 
 	/* Use net buf because other layers have been stripped (Base64/SMP header) */
-	decode_ok = cbor_decode_file_upload_rsp(cnr->nb->data, cbor_size, &file_upload_rsp,
-						&decode_len);
-	LOG_DBG("decode: %d len: %u size: %u", decode_ok, decode_len, cbor_size);
-	if (!decode_ok) {
+	decode_status = cbor_decode_file_upload_rsp(cnr->nb->data, cbor_size, &file_upload_rsp,
+						    &decode_len);
+	LOG_DBG("decode: %d len: %u size: %u", decode_status, decode_len, cbor_size);
+	if (decode_status != 0) {
 		return MGMT_ERR_DECODE;
 	}
 
@@ -152,49 +152,43 @@ static int upload(struct mgmt_ctxt *ctxt)
 
 static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, void *arg)
 {
-	int mgmt_err = 0;
-
 	/* Short circuit if event is a don't care */
 	if (is_cmd(hdr) || (hdr->nh_group != MGMT_GROUP_ID_FS)) {
 		return;
 	}
 
 	switch (event) {
-	case MGMT_EVT_OP_RSP_RECV:
-		break;
-
 	case MGMT_EVT_OP_RSP_DONE:
-		mgmt_err = ((struct mgmt_evt_op_cmd_done_arg *)arg)->err;
-
-		if (mgmt_err) {
-			LOG_WRN("op done status: %u", mgmt_err);
-			/* handle error condition */
-		}
-
-		if (hdr->nh_seq == fs_ctx.sequence) {
+		if (hdr->nh_seq != fs_ctx.sequence) {
 			LOG_ERR("Unexpected sequence");
 		}
 
 		k_sem_give(&fs_ctx.busy);
 		break;
 	default:
+		/* don't care */
 		break;
 	}
 }
 
 static int upload_chunk(void)
 {
+	int r;
 	size_t cmd_len = 0;
-	struct file_upload_cmd file_upload_cmd = { .offset = fs_ctx.offset,
-						   .data.value = fs_ctx.data + fs_ctx.offset,
-						   .data.len = fs_ctx.chunk_size,
-						   .len = fs_ctx.size,
-						   .name.value = fs_ctx.name,
-						   .name.len = strlen(fs_ctx.name) };
+	/* clang-format off */
+	struct file_upload_cmd file_upload_cmd = {
+		.offset = fs_ctx.offset,
+		.data.value = fs_ctx.data + fs_ctx.offset,
+		.data.len = fs_ctx.chunk_size,
+		.len = fs_ctx.size,
+		.name.value = fs_ctx.name,
+		.name.len = strlen(fs_ctx.name)
+	};
+	/* clang-format on */
 
-	if (!cbor_encode_file_upload_cmd(fs_ctx.cmd, sizeof(fs_ctx.cmd), &file_upload_cmd,
-					 &cmd_len)) {
-		LOG_ERR("Unable to encode fs upload chunk");
+	r = cbor_encode_file_upload_cmd(fs_ctx.cmd, sizeof(fs_ctx.cmd), &file_upload_cmd, &cmd_len);
+	if (r != 0) {
+		LOG_ERR("Unable to encode fs upload chunk %d", r);
 		return -EINVAL;
 	}
 
@@ -222,12 +216,16 @@ int fs_mgmt_client_download(const char *name)
 	fs_ctx.size = 0;
 	fs_ctx.name = name;
 
-	file_download_cmd = (struct file_download_cmd){ .offset = 0,
-							.name.value = name,
-							.name.len = strlen(name) };
+	/* clang-format off */
+	file_download_cmd = (struct file_download_cmd) {
+		.offset = 0,
+		.name.value = name,
+		.name.len = strlen(name)
+	};
+	/* clang-format on */
 
-	if (!cbor_encode_file_download_cmd(fs_ctx.cmd, sizeof(fs_ctx.cmd), &file_download_cmd,
-					   &cmd_len)) {
+	if (cbor_encode_file_download_cmd(fs_ctx.cmd, sizeof(fs_ctx.cmd), &file_download_cmd,
+					  &cmd_len)) {
 		LOG_ERR("Unable to encode %s", __func__);
 		return -EINVAL;
 	}

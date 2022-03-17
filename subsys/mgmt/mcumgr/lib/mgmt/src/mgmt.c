@@ -255,10 +255,17 @@ mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg)
 	sys_snode_t *node;
 	struct mgmt_on_evt_cb_entry *entry;
 
-	LOG_DBG("op:%s event:%s group:%u id:%u seq:%u",
-		mgmt_get_string_operation(hdr->nh_op),
-		mgmt_get_string_event(opcode), hdr->nh_group, hdr->nh_id,
-		hdr->nh_seq);
+#ifdef CONFIG_MCUMGR_STATUS_STRINGS
+	int status = 0;
+
+	if (opcode == MGMT_EVT_OP_RSP_DONE) {
+		status = arg ? ((struct mgmt_evt_op_cmd_done_arg *)arg)->err : 0;
+	}
+
+	LOG_DBG("op: %s event: %s group: %u id: %u seq: %u status: %s",
+		mgmt_get_string_operation(hdr->nh_op), mgmt_get_string_event(opcode), hdr->nh_group,
+		hdr->nh_id, hdr->nh_seq, mgmt_get_string_err(status));
+#endif
 
 	SYS_SLIST_FOR_EACH_NODE(&mgmt_event_callback_list, node) {
     	entry = CONTAINER_OF(node, struct mgmt_on_evt_cb_entry, node);
@@ -363,10 +370,14 @@ mgmt_get_string_err(int err)
 		return "8-Command not supported";
 	case MGMT_ERR_ECORRUPT:
 		return "9-Corrupt ";
+	case MGMT_ERR_NO_CLIENT:
+		return "10-Client handler not found";
 	case MGMT_ERR_DECODE:
-		return "10-Decode";
+		return "11-Decode";
 	case MGMT_ERR_ENCODE:
-		return "11-Encode";
+		return "12-Encode";
+	case MGMT_ERR_NOT_DONE:
+		return "255-Not Done";
 	default:
 		return "?";
 	}

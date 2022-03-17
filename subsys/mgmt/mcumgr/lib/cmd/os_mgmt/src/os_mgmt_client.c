@@ -69,18 +69,18 @@ static struct mgmt_group os_mgmt_client_group = {
 #if CONFIG_OS_MGMT_CLIENT_ECHO
 static int os_mgmt_client_echo(struct mgmt_ctxt *ctxt)
 {
-	bool decode_ok;
+	uint_fast8_t decode_err;
 	size_t decode_len = 0;
 	struct cbor_nb_reader *cnr = (struct cbor_nb_reader *)ctxt->parser.d;
 	size_t cbor_size = cnr->nb->len;
 	struct echo_rsp echo_rsp;
 
 	/* Use net buf because other layers have been stripped (Base64/SMP header) */
-	decode_ok = cbor_decode_echo_rsp(cnr->nb->data, cbor_size, &echo_rsp, &decode_len);
-	LOG_DBG("decode: %d len: %u size: %u", decode_ok, decode_len, cbor_size);
+	decode_err = cbor_decode_echo_rsp(cnr->nb->data, cbor_size, &echo_rsp, &decode_len);
+	LOG_DBG("decode err: %d len: %u size: %u", decode_err, decode_len, cbor_size);
 	LOG_HEXDUMP_DBG(cnr->nb->data, cbor_size, "Echo rxed by client");
 	LOG_HEXDUMP_DBG(echo_rsp.r.value, echo_rsp.r.len, "d");
-	if (!decode_ok) {
+	if (decode_err) {
 		return MGMT_ERR_DECODE;
 	}
 

@@ -67,8 +67,8 @@ static int os_mgmt_echo(struct mgmt_ctxt *ctxt)
 {
 	char rsp[256] = { 0 };
 
-	bool decode_ok;
-	bool encode_ok;
+	uint_fast8_t decode_err;
+	uint_fast8_t encode_err;
 	size_t encode_len = 0;
 	int write_status;
 	struct cbor_nb_reader *cnr = (struct cbor_nb_reader *)ctxt->parser.d;
@@ -79,9 +79,9 @@ static int os_mgmt_echo(struct mgmt_ctxt *ctxt)
 	struct echo_rsp echo_rsp;
 
 	/* Use net buf because other layers have been stripped (Base64/SMP header) */
-	decode_ok = cbor_decode_echo_cmd(cnr->nb->data, cbor_size, &cmd,
+	decode_err = cbor_decode_echo_cmd(cnr->nb->data, cbor_size, &cmd,
 					 &decode_len);
-	LOG_DBG("decode: %d len: %u size: %u", decode_ok, decode_len,
+	LOG_DBG("decode err: %d len: %u size: %u", decode_err, decode_len,
 		cbor_size);
 	LOG_HEXDUMP_DBG(cnr->nb->data, cbor_size, "cbor in");
 	LOG_HEXDUMP_DBG(cmd.d.value, cmd.d.len, "d");
@@ -89,12 +89,12 @@ static int os_mgmt_echo(struct mgmt_ctxt *ctxt)
 	echo_rsp.r.value = cmd.d.value;
 	echo_rsp.r.len = cmd.d.len;
 
-	encode_ok = cbor_encode_echo_rsp(rsp, sizeof(rsp), &echo_rsp, &encode_len);
+	encode_err = cbor_encode_echo_rsp(rsp, sizeof(rsp), &echo_rsp, &encode_len);
 
     LOG_DBG("Encode length %u", encode_len);
 	LOG_HEXDUMP_DBG(rsp, encode_len, "cbor out");
 
-	if (!encode_ok) {
+	if (encode_err) {
 		LOG_ERR("Unable to encode response");
 		return MGMT_ERR_EPERUSER;
 	}
