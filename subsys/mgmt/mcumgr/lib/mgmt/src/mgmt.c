@@ -3,6 +3,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <logging/log.h>
+LOG_MODULE_REGISTER(mgmt, 4);
 
 #include <string.h>
 
@@ -11,17 +13,16 @@
 #include "mgmt/mgmt.h"
 #include <sys/atomic.h>
 
-static atomic_t evt_users = ATOMIC_INIT(0);
-static mgmt_on_evt_cb evt_cb[CONFIG_MCUMGR_EVENT_CALLBACK_MAX_USERS];
+static sys_slist_t mgmt_event_callback_list;
 
 static struct mgmt_group *server_list_head;
 static struct mgmt_group *server_list_end;
 
-#ifdef CONFIG_MCUMGR_CLIENT
-static atomic_t mgmt_sequence = ATOMIC_INIT(0);
-
 static struct mgmt_group *client_list_head;
 static struct mgmt_group *client_list_end;
+
+#ifdef CONFIG_MCUMGR_CLIENT
+static atomic_t mgmt_sequence = ATOMIC_INIT(0);
 #endif
 
 
@@ -102,11 +103,7 @@ mgmt_find_group(uint16_t group_id, uint16_t command_id, bool client)
 {
 	struct mgmt_group *group;
 
-	if (client) {
-		group = CONFIG_MCUMGR_CLIENT ? client_list_head : NULL;
-	} else {
-		group = server_list_head;
-	}
+	group = client ? client_list_head : server_list_head;
 
 	/*
 	 * Find the group with the specified group id, if one exists
@@ -245,27 +242,28 @@ mgmt_hton_hdr(struct mgmt_hdr *hdr)
 }
 
 int
-mgmt_register_evt_cb(mgmt_on_evt_cb cb)
+mgmt_register_evt_cb(struct mgmt_on_evt_cb_entry *entry)
 {
-	int i = (int)atomic_inc(&evt_users);
+	sys_slist_append(&mgmt_event_callback_list, &entry->node);
 
-	if (i < CONFIG_MCUMGR_EVENT_CALLBACK_MAX_USERS) {
-		evt_cb[i] = cb;
-		return 0;
-	} else {
-		return MGMT_ERR_ENOMEM;
-	}
+	return 0;
 }
 
 void
 mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg)
 {
-	int i;
-	int users = (int)atomic_get(&evt_users);
+	sys_snode_t *node;
+	struct mgmt_on_evt_cb_entry *entry;
 
-	for (i = 0; i < users; i++) {
-		if (evt_cb[i]) {
-			evt_cb[i](opcode, hdr, arg);
+	LOG_DBG("op:%s event:%s group:%u id:%u seq:%u",
+		mgmt_get_string_operation(hdr->nh_op),
+		mgmt_get_string_event(opcode), hdr->nh_group, hdr->nh_id,
+		hdr->nh_seq);
+
+	SYS_SLIST_FOR_EACH_NODE(&mgmt_event_callback_list, node) {
+    	entry = CONTAINER_OF(node, struct mgmt_on_evt_cb_entry, node);
+		if (entry->cb != NULL) {
+			entry->cb(opcode, hdr, arg);
 		}
 	}
 }
@@ -282,6 +280,15 @@ uint8_t
 mgmt_get_sequence(void)
 {
 	return (uint8_t)atomic_inc(&mgmt_sequence);
+}
+
+void mgmt_generate_cmd_sent_event(struct mgmt_hdr *nwk_hdr)
+{
+	struct mgmt_hdr host_hdr;
+
+	memcpy(&host_hdr, nwk_hdr, sizeof(host_hdr));
+	mgmt_ntoh_hdr(&host_hdr);
+	mgmt_evt(MGMT_EVT_OP_CMD_SENT, &host_hdr, NULL);
 }
 #endif
 

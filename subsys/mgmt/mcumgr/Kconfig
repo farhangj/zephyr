@@ -609,8 +609,4 @@ config MCUMGR_CLIENT
 config MCUMGR_STATUS_STRINGS
 	bool "Enable generation of managment status strings"
 
-config MCUMGR_EVENT_CALLBACK_MAX_USERS
-	int "Max number of users that can register for a management callback"
-	default 1
-
 endif # MCUMGR

@@ -8,6 +8,7 @@
 #define H_MGMT_MGMT_
 
 #include <inttypes.h>
+#include <sys/slist.h>
 #include "tinycbor/cbor.h"
 
 #ifdef __cplusplus
@@ -125,6 +126,13 @@ struct mgmt_evt_op_cmd_done_arg {
  */
 typedef void (*mgmt_on_evt_cb)(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg);
 
+/**
+ * Linked List Entry
+ */
+struct mgmt_on_evt_cb_entry {
+	sys_snode_t node;
+	mgmt_on_evt_cb cb;
+};
 
 /** @typedef mgmt_alloc_rsp_fn
  * @brief Allocates a buffer suitable for holding a response.
@@ -450,10 +458,10 @@ void mgmt_hton_hdr(struct mgmt_hdr *hdr);
 /**
  * @brief Register event callback function.
  *
- * @param cb Callback function.
+ * @param cb Callback linked list structure
  * @return  0 on success, MGMT_ERR_[...] code on failure.
  */
-int mgmt_register_evt_cb(mgmt_on_evt_cb cb);
+int mgmt_register_evt_cb(struct mgmt_on_evt_cb_entry *entry);
 
 /**
  * @brief This function is called to notify about mgmt event.
@@ -470,6 +478,13 @@ void mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg);
  * @return uint8_t
  */
 uint8_t mgmt_get_sequence(void);
+
+/**
+ * @brief Generate an event when a command is sent
+ *
+ * @param nwk_hdr header in network format
+ */
+void mgmt_generate_cmd_sent_event(struct mgmt_hdr *nwk_hdr);
 
 /**
  * @brief Use header to determine if a message is a command or a response.
