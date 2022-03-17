@@ -56,6 +56,7 @@ extern "C" {
 #define MGMT_ERR_ECORRUPT	9	   /* Corrupt */
 #define MGMT_ERR_DECODE		10
 #define MGMT_ERR_ENCODE		11
+#define MGMT_ERR_NOT_DONE   255		/* Multi-part command */
 #define MGMT_ERR_EPERUSER	256
 
 #define MGMT_HDR_SIZE		8

@@ -398,10 +398,6 @@ smp_process_response_packet(struct smp_streamer *streamer, void *pkt,
 		mgmt_streamer_trim_front(&streamer->mgmt_stmr, pkt, smp_align4(pkt_hdr->nh_len));
 	}
 
-	if (rc != 0) {
-		/* mgmt_evt() */
-	}
-
 	return rc;
 }
 
@@ -443,7 +439,12 @@ int smp_process_packet(struct smp_streamer *streamer, void *pkt)
 			event = MGMT_EVT_OP_CMD_DONE;
 		} else {
 			rc.err = smp_process_response_packet(streamer, pkt, &pkt_hdr);
-			event = MGMT_EVT_OP_RSP_DONE;
+			/* File system and image management often require multiple commands to complete */
+			if (rc.err == MGMT_ERR_NOT_DONE) {
+				event = MGMT_EVT_OP_RSP_STATUS;
+			} else {
+				event = MGMT_EVT_OP_RSP_DONE;
+			}
 		}
 
 		mgmt_evt(event, &pkt_hdr, &rc);
