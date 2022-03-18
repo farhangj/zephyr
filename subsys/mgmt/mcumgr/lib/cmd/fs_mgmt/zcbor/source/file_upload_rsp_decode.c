@@ -37,10 +37,12 @@ static bool decode_file_upload_rsp(
 
 uint_fast8_t cbor_decode_file_upload_rsp(
 		const uint8_t *payload, size_t payload_len,
-		struct file_upload_rsp *result,
+		void *v_result,
 		size_t *payload_len_out)
 {
 	zcbor_state_t states[3];
+
+	struct file_upload_rsp *result = v_result;
 
 	zcbor_new_state(states, sizeof(states) / sizeof(zcbor_state_t), payload, payload_len, 1);
 

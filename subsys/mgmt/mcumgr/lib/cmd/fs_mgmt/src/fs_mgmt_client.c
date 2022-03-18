@@ -30,6 +30,7 @@ LOG_MODULE_REGISTER(fs_mgmt_client, CONFIG_FS_MGMT_CLIENT_LOG_LEVEL);
 #include "file_download_rsp_decode.h"
 #include "file_upload_cmd_encode.h"
 #include "file_upload_rsp_decode.h"
+#include "zcbor_mgmt.h"
 
 #include "fs_mgmt/fs_mgmt.h"
 
@@ -129,23 +130,13 @@ static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 
 static int upload_rsp_handler(struct mgmt_ctxt *ctxt)
 {
-	uint_fast8_t decode_status;
-	size_t decode_len = 0;
-	struct cbor_nb_reader *cnr = (struct cbor_nb_reader *)ctxt->parser.d;
-	size_t cbor_size = cnr->nb->len;
 	struct file_upload_rsp file_upload_rsp;
 
-	/* Use net buf because other layers have been stripped (Base64/SMP header) */
-	decode_status = cbor_decode_file_upload_rsp(cnr->nb->data, cbor_size, &file_upload_rsp,
-						    &decode_len);
-	LOG_DBG("decode: %d len: %u size: %u", decode_status, decode_len, cbor_size);
-	if (decode_status != 0) {
+	if (zcbor_mgmt_decode(ctxt, cbor_decode_file_upload_rsp, &file_upload_rsp, true) != 0) {
 		return MGMT_ERR_DECODE;
 	}
 
 	LOG_DBG("rc: %d off: %u", file_upload_rsp.rc, file_upload_rsp.off);
-
-	mgmt_evt(MGMT_EVT_OP_RSP_RECV, &ctxt->hdr, &file_upload_rsp);
 
 	return MGMT_ERR_EOK;
 }
@@ -158,7 +149,7 @@ static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 	}
 
 	switch (event) {
-	case MGMT_EVT_OP_RSP_DONE:
+	case MGMT_EVT_OP_CLIENT_DONE:
 		if (hdr->nh_seq != fs_ctx.sequence) {
 			LOG_ERR("Unexpected sequence");
 		}

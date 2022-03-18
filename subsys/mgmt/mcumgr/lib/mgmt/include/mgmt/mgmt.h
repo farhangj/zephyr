@@ -69,9 +69,9 @@ extern "C" {
 #define MGMT_EVT_OP_CMD_RECV			0x01
 #define MGMT_EVT_OP_CMD_STATUS			0x02
 #define MGMT_EVT_OP_CMD_DONE			0x03
-#define MGMT_EVT_OP_RSP_RECV			0x04
-#define MGMT_EVT_OP_RSP_STATUS			0x05
-#define MGMT_EVT_OP_RSP_DONE			0x06
+#define MGMT_EVT_OP_CLIENT_RECV			0x04
+#define MGMT_EVT_OP_CLIENT_STATUS		0x05
+#define MGMT_EVT_OP_CLIENT_DONE			0x06
 #define MGMT_EVT_OP_CMD_SENT			0x07
 
 struct mgmt_hdr {

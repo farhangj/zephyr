@@ -28,9 +28,8 @@ LOG_MODULE_REGISTER(os_mgmt_client, CONFIG_MGMT_CLIENT_OS_LOG_LEVEL);
 #include "os_mgmt/os_mgmt_impl.h"
 #include "os_mgmt/os_mgmt_config.h"
 
-#include "net/buf.h"
-#include "mgmt/mcumgr/buf.h"
 #include "echo_rsp_decode.h"
+#include "zcbor_mgmt.h"
 
 #if CONFIG_OS_MGMT_CLIENT_ECHO
 static int os_mgmt_client_echo(struct mgmt_ctxt *ctxt);
@@ -69,22 +68,11 @@ static struct mgmt_group os_mgmt_client_group = {
 #if CONFIG_OS_MGMT_CLIENT_ECHO
 static int os_mgmt_client_echo(struct mgmt_ctxt *ctxt)
 {
-	uint_fast8_t decode_err;
-	size_t decode_len = 0;
-	struct cbor_nb_reader *cnr = (struct cbor_nb_reader *)ctxt->parser.d;
-	size_t cbor_size = cnr->nb->len;
 	struct echo_rsp echo_rsp;
 
-	/* Use net buf because other layers have been stripped (Base64/SMP header) */
-	decode_err = cbor_decode_echo_rsp(cnr->nb->data, cbor_size, &echo_rsp, &decode_len);
-	LOG_DBG("decode err: %d len: %u size: %u", decode_err, decode_len, cbor_size);
-	LOG_HEXDUMP_DBG(cnr->nb->data, cbor_size, "Echo rxed by client");
-	LOG_HEXDUMP_DBG(echo_rsp.r.value, echo_rsp.r.len, "d");
-	if (decode_err) {
+	if (zcbor_mgmt_decode(ctxt, cbor_decode_echo_rsp, &echo_rsp, true) != 0) {
 		return MGMT_ERR_DECODE;
 	}
-
-	mgmt_evt(MGMT_EVT_OP_RSP_RECV, &ctxt->hdr, &echo_rsp);
 
 	return MGMT_ERR_EOK;
 }

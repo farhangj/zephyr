@@ -258,11 +258,11 @@ mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg)
 #ifdef CONFIG_MCUMGR_STATUS_STRINGS
 	int status = 0;
 
-	if (opcode == MGMT_EVT_OP_RSP_DONE) {
+	if (opcode == MGMT_EVT_OP_CLIENT_DONE) {
 		status = arg ? ((struct mgmt_evt_op_cmd_done_arg *)arg)->err : 0;
 	}
 
-	LOG_DBG("op: %s event: %s group: %u id: %u seq: %u status: %s",
+	LOG_DBG("%s %s group: %u id: %u seq: %u status: %s",
 		mgmt_get_string_operation(hdr->nh_op), mgmt_get_string_event(opcode), hdr->nh_group,
 		hdr->nh_id, hdr->nh_seq, mgmt_get_string_err(status));
 #endif
@@ -300,6 +300,30 @@ void mgmt_generate_cmd_sent_event(struct mgmt_hdr *nwk_hdr)
 #endif
 
 #ifdef CONFIG_MCUMGR_STATUS_STRINGS
+
+const char *
+mgmt_get_string_event(uint8_t event)
+{
+	switch (event) {
+	case MGMT_EVT_OP_CMD_RECV:
+		return "Cmd Recv";
+	case MGMT_EVT_OP_CMD_STATUS:
+		return "Cmd Status";
+	case MGMT_EVT_OP_CMD_DONE:
+		return "Cmd Done";
+	case MGMT_EVT_OP_CLIENT_RECV:
+		return "Client Recv";
+	case MGMT_EVT_OP_CLIENT_STATUS:
+		return "Client Status";
+	case MGMT_EVT_OP_CLIENT_DONE:
+		return "Client Done";
+	case MGMT_EVT_OP_CMD_SENT:
+		return "Cmd Sent";
+	default:
+		return "?";
+	}
+}
+
 const char *
 mgmt_get_string_operation(uint8_t operation)
 {
@@ -378,29 +402,6 @@ mgmt_get_string_err(int err)
 		return "12-Encode";
 	case MGMT_ERR_NOT_DONE:
 		return "255-Not Done";
-	default:
-		return "?";
-	}
-}
-
-const char *
-mgmt_get_string_event(uint8_t event)
-{
-	switch (event) {
-	case MGMT_EVT_OP_CMD_RECV:
-		return "Cmd Recv";
-	case MGMT_EVT_OP_CMD_STATUS:
-		return "Cmd Status";
-	case MGMT_EVT_OP_CMD_DONE:
-		return "Cmd Done";
-	case MGMT_EVT_OP_RSP_RECV:
-		return "Rsp Recv";
-	case MGMT_EVT_OP_RSP_STATUS:
-		return "Rsp Status";
-	case MGMT_EVT_OP_RSP_DONE:
-		return "Rsp Done";
-	case MGMT_EVT_OP_CMD_SENT:
-		return "Cmd Sent";
 	default:
 		return "?";
 	}
