@@ -333,18 +333,20 @@ zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
 
 	rc = mgmt_streamer_init_writer(&streamer.mgmt_stmr, cmd);
 	if (rc != 0) {
-		return -1;
+		return rc;
 	}
 
 	rc = writer.enc.write(&writer.enc, (const char *)cmd_hdr, sizeof(*cmd_hdr));
 	if (rc != 0) {
-		return rc;
+		return mgmt_err_from_cbor(rc);
 	}
 
 	rc = writer.enc.write(&writer.enc, cbor_data, ntohs(cmd_hdr->nh_len));
 	if (rc != 0) {
-		return rc;
+		return mgmt_err_from_cbor(rc);
 	}
 
-	return streamer.tx_rsp_cb(&streamer, cmd, streamer.mgmt_stmr.cb_arg);
+	rc = streamer.tx_rsp_cb(&streamer, cmd, streamer.mgmt_stmr.cb_arg);
+	mgmt_generate_cmd_sent_event(cmd_hdr, rc);
+	return rc;
 }

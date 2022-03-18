@@ -16,20 +16,23 @@ extern "C" {
 /**
  * @brief Read a file
  *
+ * @param transport to send message on
  * @param name of file to read from mgmt server
  * @return int 0 on success, negative errno
  */
-int fs_mgmt_client_download(const char *name);
+int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *name);
 
 /**
  * @brief Write a file
  *
+ * @param transport to send message on
  * @param name of file to write to mgmt server
  * @param data to write
  * @param size of data
  * @return int 0 on success, negative errno
  */
-int fs_mgmt_client_upload(const char *name, const void *data, size_t size);
+int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *name,
+			  const void *data, size_t size);
 
 #ifdef __cplusplus
 }

@@ -58,7 +58,7 @@ extern "C" {
 #define MGMT_ERR_NO_CLIENT	10	   /* Client handler not found */
 #define MGMT_ERR_DECODE		11
 #define MGMT_ERR_ENCODE		12
-#define MGMT_ERR_NOT_DONE   255	   /* Multi-part command */
+#define MGMT_ERR_OFFSET     13
 #define MGMT_ERR_EPERUSER	256
 
 #define MGMT_HDR_SIZE		8
@@ -107,6 +107,13 @@ struct mgmt_hdr {
  */
 struct mgmt_evt_op_cmd_status_arg {
 	int status;
+};
+
+/*
+ * MGMT_EVT_OP_CMD_SENT argument
+ */
+struct mgmt_evt_op_cmd_sent_arg {
+	int err;			/* MGMT_ERR_[...] */
 };
 
 /*
@@ -476,23 +483,24 @@ void mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg);
 /**
  * @brief Get sequence number for management client command
  *
- * @return uint8_t
+ * @return uint8_t	sequence number
  */
 uint8_t mgmt_get_sequence(void);
 
 /**
  * @brief Generate an event when a command is sent
  *
- * @param nwk_hdr header in network format
+ * @param nwk_hdr	header in network format
+ * @param err		MGMT_ERR_[...] code
  */
-void mgmt_generate_cmd_sent_event(struct mgmt_hdr *nwk_hdr);
+void mgmt_generate_cmd_sent_event(struct mgmt_hdr *nwk_hdr, int err);
 
 /**
  * @brief Use header to determine if a message is a command or a response.
  *
- * @param hdr management header
- * @return true from client (cmd)
- * @return false from server (response)
+ * @param hdr 		management header
+ * @return true 	from client (cmd)
+ * @return false 	from server (response)
  */
 bool is_cmd(const struct mgmt_hdr *hdr);
 

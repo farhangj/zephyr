@@ -258,13 +258,23 @@ mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg)
 #ifdef CONFIG_MCUMGR_STATUS_STRINGS
 	int status = 0;
 
-	if (opcode == MGMT_EVT_OP_CLIENT_DONE) {
-		status = arg ? ((struct mgmt_evt_op_cmd_done_arg *)arg)->err : 0;
+	if (arg) {
+		switch (opcode) {
+		case MGMT_EVT_OP_CMD_SENT:
+			status = ((struct mgmt_evt_op_cmd_sent_arg *)arg)->err;
+			break;
+		case MGMT_EVT_OP_CLIENT_DONE:
+			status = ((struct mgmt_evt_op_cmd_done_arg *)arg)->err;
+			break;
+		default:
+			status = 0;
+			break;
+		}
 	}
 
-	LOG_DBG("%s %s group: %u id: %u seq: %u status: %s",
-		mgmt_get_string_operation(hdr->nh_op), mgmt_get_string_event(opcode), hdr->nh_group,
-		hdr->nh_id, hdr->nh_seq, mgmt_get_string_err(status));
+	LOG_DBG("%s %s group: %u id: %u seq: %u status: %s", mgmt_get_string_operation(hdr->nh_op),
+		mgmt_get_string_event(opcode), hdr->nh_group, hdr->nh_id, hdr->nh_seq,
+		mgmt_get_string_err(status));
 #endif
 
 	SYS_SLIST_FOR_EACH_NODE(&mgmt_event_callback_list, node) {
@@ -289,13 +299,15 @@ mgmt_get_sequence(void)
 	return (uint8_t)atomic_inc(&mgmt_sequence);
 }
 
-void mgmt_generate_cmd_sent_event(struct mgmt_hdr *nwk_hdr)
+void mgmt_generate_cmd_sent_event(struct mgmt_hdr *nwk_hdr, int err)
 {
 	struct mgmt_hdr host_hdr;
+	struct mgmt_evt_op_cmd_sent_arg arg;
 
 	memcpy(&host_hdr, nwk_hdr, sizeof(host_hdr));
 	mgmt_ntoh_hdr(&host_hdr);
-	mgmt_evt(MGMT_EVT_OP_CMD_SENT, &host_hdr, NULL);
+	arg.err = err;
+	mgmt_evt(MGMT_EVT_OP_CMD_SENT, &host_hdr, &err);
 }
 #endif
 
@@ -389,7 +401,7 @@ mgmt_get_string_err(int err)
 	case MGMT_ERR_EBADSTATE:
 		return "6-Current state disallows command";
 	case MGMT_ERR_EMSGSIZE:
-		return "7-Response too large";
+		return "7-Message too large";
 	case MGMT_ERR_ENOTSUP:
 		return "8-Command not supported";
 	case MGMT_ERR_ECORRUPT:
@@ -400,8 +412,8 @@ mgmt_get_string_err(int err)
 		return "11-Decode";
 	case MGMT_ERR_ENCODE:
 		return "12-Encode";
-	case MGMT_ERR_NOT_DONE:
-		return "255-Not Done";
+	case MGMT_ERR_OFFSET:
+		return "13-Offset";
 	default:
 		return "?";
 	}

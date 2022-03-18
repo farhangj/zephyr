@@ -45,9 +45,9 @@ menuconfig MCUMGR_CLIENT_FS_MGMT
 	bool "Enable mcumgr client for file management"
 
 if MCUMGR_CLIENT_FS_MGMT
-module=FS_MGMT_CLIENT
+module=MCUMGR_CLIENT_FS
 module-dep=LOG
-module-str=FS_MGMT_CLIENT
+module-str=MCUMGR_CLIENT_FS
 source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
 endif
 
@@ -63,9 +63,9 @@ menuconfig MCUMGR_CMD_FS_MGMT
 	  discouraged.
 
 if MCUMGR_CMD_FS_MGMT
-module=FS_MGMT
+module=MCUMGR_CMD_FS
 module-dep=LOG
-module-str=FS_MGMT
+module-str=MCUMGR_CMD_FS
 source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
 endif
 

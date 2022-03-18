@@ -439,12 +439,7 @@ int smp_process_packet(struct smp_streamer *streamer, void *pkt)
 			event = MGMT_EVT_OP_CMD_DONE;
 		} else {
 			rc.err = smp_process_response_packet(streamer, pkt, &pkt_hdr);
-			/* File system and image management often require multiple commands to complete */
-			if (rc.err == MGMT_ERR_NOT_DONE) {
-				event = MGMT_EVT_OP_CLIENT_STATUS;
-			} else {
-				event = MGMT_EVT_OP_CLIENT_DONE;
-			}
+			event = MGMT_EVT_OP_CLIENT_DONE;
 		}
 
 		mgmt_evt(event, &pkt_hdr, &rc);

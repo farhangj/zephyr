@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <logging/log.h>
-LOG_MODULE_REGISTER(fs_mgmt, CONFIG_FS_MGMT_LOG_LEVEL);
+LOG_MODULE_REGISTER(fs_mgmt, CONFIG_MCUMGR_CMD_FS_LOG_LEVEL);
 
 #include <limits.h>
 #include <string.h>
