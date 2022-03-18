@@ -184,6 +184,11 @@ zephyr_smp_tx_rsp(struct smp_streamer *ns, void *rsp, void *arg)
 		return MGMT_ERR_EUNKNOWN;
 	}
 
+	if (nb->len > mtu) {
+		/* The size of the message is too large for the transport. */
+		return MGMT_ERR_EMSGSIZE;
+	}
+
 	i = 0;
 	while (nb != NULL) {
 		frag = zephyr_smp_split_frag(&nb, zst, mtu);
