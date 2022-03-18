@@ -30,6 +30,7 @@ LOG_MODULE_REGISTER(fs_mgmt_client, CONFIG_FS_MGMT_CLIENT_LOG_LEVEL);
 #include "file_download_rsp_decode.h"
 #include "file_upload_cmd_encode.h"
 #include "file_upload_rsp_decode.h"
+#include "error_rsp_decode.h"
 #include "zcbor_mgmt.h"
 
 #include "fs_mgmt/fs_mgmt.h"
@@ -45,7 +46,7 @@ static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 /**************************************************************************************************/
 /* Local Constant, Macro and Type Definitions                                                     */
 /**************************************************************************************************/
-#define CONFIG_FS_CMD_TIMEOUT_SECONDS 1 /* this should be based on transport */
+#define CONFIG_FS_CMD_TIMEOUT_SECONDS 1 /* should this be based on transport? */
 
 #define BUILD_NETWORK_HEADER(op, len, id) SET_NETWORK_HEADER(op, len, MGMT_GROUP_ID_FS, id)
 
@@ -131,9 +132,14 @@ static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 static int upload_rsp_handler(struct mgmt_ctxt *ctxt)
 {
 	struct file_upload_rsp file_upload_rsp;
+	struct error_rsp error_rsp;
 
 	if (zcbor_mgmt_decode(ctxt, cbor_decode_file_upload_rsp, &file_upload_rsp, true) != 0) {
-		return MGMT_ERR_DECODE;
+		if (zcbor_mgmt_decode(ctxt, cbor_decode_error_rsp, &error_rsp, false) != 0) {
+			return MGMT_ERR_DECODE;
+		} else {
+			return error_rsp.rc;
+		}
 	}
 
 	LOG_DBG("rc: %d off: %u", file_upload_rsp.rc, file_upload_rsp.off);

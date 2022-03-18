@@ -10,5 +10,5 @@ SET oh=.\include
 
 rem At this time everything is command/response
 
-FOR %%x IN (file_download_cmd, file_download_rsp, file_upload_cmd, file_upload_rsp) DO zcbor %both% %%x --oc %oc%\%%x.c --oh %oh%\%%x.h
+FOR %%x IN (file_download_cmd, file_download_rsp, file_upload_cmd, file_upload_rsp, error_rsp) DO zcbor %both% %%x --oc %oc%\%%x.c --oh %oh%\%%x.h
 

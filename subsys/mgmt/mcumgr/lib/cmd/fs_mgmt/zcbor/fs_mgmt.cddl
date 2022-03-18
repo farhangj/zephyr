@@ -24,3 +24,8 @@ file_upload_rsp = {
     "rc" : (result_code),
     "off" : (uint)
 }
+
+; It is easier to treat error as its own message type
+error_rsp = {
+    "rc" : (result_code),
+}
