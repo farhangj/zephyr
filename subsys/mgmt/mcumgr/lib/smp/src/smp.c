@@ -315,7 +315,7 @@ smp_on_err(struct smp_streamer *streamer, const struct mgmt_hdr *req_hdr,
 	/* Build and transmit the error response. */
 	rc = smp_build_err_rsp(streamer, req_hdr, status);
 	if (rc == 0) {
-		streamer->tx_rsp_cb(streamer, rsp, streamer->mgmt_stmr.cb_arg);
+		streamer->tx_cb(streamer, rsp, streamer->mgmt_stmr.cb_arg);
 		rsp = NULL;
 	}
 
@@ -364,7 +364,7 @@ smp_process_command_packet(struct smp_streamer *streamer, void *pkt,
 		}
 
 		/* Send the response. */
-		rc = streamer->tx_rsp_cb(streamer, rsp, streamer->mgmt_stmr.cb_arg);
+		rc = streamer->tx_cb(streamer, rsp, streamer->mgmt_stmr.cb_arg);
 		rsp = NULL;
 		if (rc != 0) {
 			break;

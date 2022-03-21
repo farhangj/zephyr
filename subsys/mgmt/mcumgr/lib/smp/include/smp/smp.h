@@ -50,7 +50,7 @@ typedef int smp_tx_rsp_fn(struct smp_streamer *ss, void *buf, void *arg);
  */
 struct smp_streamer {
 	struct mgmt_streamer mgmt_stmr;
-	smp_tx_rsp_fn *tx_rsp_cb;
+	smp_tx_rsp_fn *tx_cb;
 };
 
 /**

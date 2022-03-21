@@ -166,7 +166,7 @@ zephyr_smp_free_buf(void *buf, void *arg)
 }
 
 static int
-zephyr_smp_tx_rsp(struct smp_streamer *ns, void *rsp, void *arg)
+zephyr_smp_tx(struct smp_streamer *ns, void *rsp, void *arg)
 {
 	struct zephyr_smp_transport *zst;
 	struct net_buf *frag;
@@ -249,7 +249,7 @@ zephyr_smp_process_packet(struct zephyr_smp_transport *zst,
 			.writer = &writer.enc,
 			.cb_arg = zst,
 		},
-		.tx_rsp_cb = zephyr_smp_tx_rsp,
+		.tx_cb = zephyr_smp_tx,
 	};
 
 	rc = smp_process_packet(&streamer, nb);
@@ -327,7 +327,7 @@ zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
 			.writer = &writer.enc,
 			.cb_arg = zst,
 		},
-		.tx_rsp_cb = zephyr_smp_tx_rsp,
+		.tx_cb = zephyr_smp_tx,
 	};
 
 	cmd = NULL;
@@ -351,7 +351,7 @@ zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
 		return mgmt_err_from_cbor(rc);
 	}
 
-	rc = streamer.tx_rsp_cb(&streamer, cmd, streamer.mgmt_stmr.cb_arg);
+	rc = streamer.tx_cb(&streamer, cmd, streamer.mgmt_stmr.cb_arg);
 	mgmt_generate_cmd_sent_event(cmd_hdr, rc);
 	return rc;
 }
