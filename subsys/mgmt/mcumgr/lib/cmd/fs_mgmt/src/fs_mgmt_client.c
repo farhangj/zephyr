@@ -222,6 +222,7 @@ static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 		k_sem_give(&fs_ctx.busy);
 	}
 }
+
 static int download_chunk(struct zephyr_smp_transport *transport)
 {
 	int r;
@@ -243,6 +244,35 @@ static int download_chunk(struct zephyr_smp_transport *transport)
 
 	fs_ctx.cmd_hdr = BUILD_NETWORK_HEADER(MGMT_OP_READ, cmd_len, FS_MGMT_ID_FILE);
 	return fs_send_cmd(transport, &fs_ctx.cmd_hdr, fs_ctx.cmd);
+}
+
+static int wait_for_response(void)
+{
+	return k_sem_take(&fs_ctx.busy, K_SECONDS(CONFIG_FS_CMD_TIMEOUT_SECONDS));
+}
+
+/* Request file chunks in caller context.
+ * Status, data, and offset are updated in a different context.
+ */
+static int download(struct zephyr_smp_transport *transport)
+{
+	int r;
+
+	k_sem_reset(&fs_ctx.busy);
+
+	do {
+		r = download_chunk(transport);
+
+		if (r == 0) {
+			if (wait_for_response() != 0) {
+				r = MGMT_ERR_ETIMEOUT;
+			} else {
+				r = fs_ctx.status;
+			}
+		}
+	} while ((r == 0) && (fs_ctx.offset < fs_ctx.size));
+
+	return r;
 }
 
 static int upload_chunk(struct zephyr_smp_transport *transport)
@@ -271,9 +301,28 @@ static int upload_chunk(struct zephyr_smp_transport *transport)
 	return fs_send_cmd(transport, &fs_ctx.cmd_hdr, fs_ctx.cmd);
 }
 
-static int wait_for_response(void)
+/* Send file chunks in caller context.
+ * Status and offset are updated in a different context.
+ */
+static int upload(struct zephyr_smp_transport *transport)
 {
-	return k_sem_take(&fs_ctx.busy, K_SECONDS(CONFIG_FS_CMD_TIMEOUT_SECONDS));
+	int r;
+
+	k_sem_reset(&fs_ctx.busy);
+
+	do {
+		r = upload_chunk(transport);
+
+		if (r == 0) {
+			if (wait_for_response() != 0) {
+				r = MGMT_ERR_ETIMEOUT;
+			} else {
+				r = fs_ctx.status;
+			}
+		}
+	} while ((r == 0) && (fs_ctx.offset < fs_ctx.size));
+
+	return r;
 }
 
 /**************************************************************************************************/
@@ -299,22 +348,7 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
 	fs_ctx.name = name;
 	fs_ctx.data = (uint8_t *)data;
 
-	k_sem_reset(&fs_ctx.busy);
-
-	/* Request file chunks in caller context.
-	 * Status, data, and offset are updated in a different context.
-	 */
-	do {
-		r = download_chunk(transport);
-
-		if (r == 0) {
-			if (wait_for_response() != 0) {
-				r = MGMT_ERR_ETIMEOUT;
-			} else {
-				r = fs_ctx.status;
-			}
-		}
-	} while ((r == 0) && (fs_ctx.offset < fs_ctx.size));
+	r = download(transport);
 
 	*size = fs_ctx.size;
 	k_mutex_unlock(&fs_client);
@@ -352,22 +386,7 @@ int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *na
 	fs_ctx.name = name;
 	fs_ctx.data = (uint8_t *)data;
 
-	k_sem_reset(&fs_ctx.busy);
-
-	/* Send file chunks in caller context.
-	 * Status and offset are updated in a different context.
-	 */
-	do {
-		r = upload_chunk(transport);
-
-		if (r == 0) {
-			if (wait_for_response() != 0) {
-				r = MGMT_ERR_ETIMEOUT;
-			} else {
-				r = fs_ctx.status;
-			}
-		}
-	} while ((r == 0) && (fs_ctx.offset < fs_ctx.size));
+	r = upload(transport);
 
 	k_mutex_unlock(&fs_client);
 	return r;
