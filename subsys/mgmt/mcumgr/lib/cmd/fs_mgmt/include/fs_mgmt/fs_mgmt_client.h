@@ -16,9 +16,12 @@ extern "C" {
  *
  * @param transport to send message on
  * @param name of file to read from mgmt server
+ * @param data location to write data
+ * @param size max size of data (input), actual size of data (output)
  * @return int 0 on success, MGMT_ERR_[...] code on failure
  */
-int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *name);
+int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *name,
+			  void *data, size_t *size);
 
 /**
  * @brief Write a file

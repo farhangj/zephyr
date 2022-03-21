@@ -22,7 +22,7 @@ file_upload_cmd = {
 
 file_upload_rsp = {
     "rc" : (result_code),
-    "off" : (uint)
+    "off" : (offset:uint)
 }
 
 ; It is easier to treat error as its own message type

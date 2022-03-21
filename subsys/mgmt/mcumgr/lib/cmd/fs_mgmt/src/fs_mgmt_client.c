@@ -49,7 +49,7 @@ static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 /**************************************************************************************************/
 #define MCUMGR_OVERHEAD (CBOR_AND_OTHER_HDR + 32)
 
-#define CONFIG_FS_CMD_TIMEOUT_SECONDS 1 /* should this be based on transport? */
+#define CONFIG_FS_CMD_TIMEOUT_SECONDS 1 /* should this be based on/read from transport? */
 
 #define BUILD_NETWORK_HEADER(op, len, id) SET_NETWORK_HEADER(op, len, MGMT_GROUP_ID_FS, id)
 
@@ -83,9 +83,9 @@ static struct {
 	int sequence;
 	volatile int status;
 	volatile size_t offset;
-	size_t size;
+	volatile size_t size;
 	size_t chunk_size;
-	const uint8_t *data;
+	uint8_t *data;
 	const char *name;
 } fs_ctx;
 
@@ -121,7 +121,54 @@ static int fs_send_cmd(struct zephyr_smp_transport *transport, struct mgmt_hdr *
 
 static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 {
-	return MGMT_ERR_NO_CLIENT;
+	int r = MGMT_ERR_EBADSTATE;
+	struct file_download_rsp file_download_rsp;
+	struct error_rsp error_rsp;
+
+	if (fs_ctx.status != 0) {
+		return r;
+	}
+
+	if (zcbor_mgmt_decode(ctxt, cbor_decode_file_download_rsp, &file_download_rsp, true) != 0) {
+		if (zcbor_mgmt_decode(ctxt, cbor_decode_error_rsp, &error_rsp, false) != 0) {
+			r = MGMT_ERR_DECODE;
+		} else {
+			r = error_rsp.rc;
+		}
+	} else {
+		LOG_DBG("rc: %d off: %u", file_download_rsp.rc, file_download_rsp.offset);
+
+		if (file_download_rsp.rc != 0) {
+			return file_download_rsp.rc;
+		}
+
+		/* First chunk must contain length */
+		if (file_download_rsp.offset == 0) {
+			if (file_download_rsp.len_present) {
+				if (file_download_rsp.len.len > fs_ctx.size) {
+					return MGMT_ERR_ENOMEM;
+				} else {
+					fs_ctx.size = file_download_rsp.len.len;
+					LOG_DBG("size: %u", fs_ctx.size);
+				}
+			} else {
+				return MGMT_ERR_OFFSET;
+			}
+		}
+
+		fs_ctx.chunk_size = file_download_rsp.data.len;
+		if (((file_download_rsp.offset + fs_ctx.chunk_size) <= fs_ctx.size) &&
+		    (fs_ctx.offset == file_download_rsp.offset)) {
+			memcpy(fs_ctx.data + fs_ctx.offset, file_download_rsp.data.value,
+			       fs_ctx.chunk_size);
+			fs_ctx.offset += fs_ctx.chunk_size;
+			r = MGMT_ERR_EOK;
+		} else {
+			r = MGMT_ERR_OFFSET;
+		}
+	}
+
+	return r;
 }
 
 static int upload_rsp_handler(struct mgmt_ctxt *ctxt)
@@ -149,7 +196,7 @@ static int upload_rsp_handler(struct mgmt_ctxt *ctxt)
 			fs_ctx.offset = file_upload_rsp.off;
 			fs_ctx.chunk_size =
 				MIN(fs_ctx.chunk_size, (fs_ctx.size - file_upload_rsp.off));
-			r =  MGMT_ERR_EOK;
+			r = MGMT_ERR_EOK;
 		} else {
 			r = MGMT_ERR_OFFSET;
 		}
@@ -174,6 +221,28 @@ static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 			arg ? ((struct mgmt_evt_op_cmd_done_arg *)arg)->err : MGMT_ERR_EUNKNOWN;
 		k_sem_give(&fs_ctx.busy);
 	}
+}
+static int download_chunk(struct zephyr_smp_transport *transport)
+{
+	int r;
+	size_t cmd_len = 0;
+	/* clang-format off */
+	struct file_download_cmd file_download_cmd = (struct file_download_cmd) {
+		.offset = fs_ctx.offset,
+		.name.value = fs_ctx.name,
+		.name.len = strlen(fs_ctx.name)
+	};
+	/* clang-format on */
+
+	r = cbor_encode_file_download_cmd(fs_ctx.cmd, sizeof(fs_ctx.cmd), &file_download_cmd,
+					  &cmd_len);
+	if (r != 0) {
+		LOG_ERR("Unable to encode fs download chunk %s", zcbor_get_error_string(r));
+		return MGMT_ERR_EINVAL;
+	}
+
+	fs_ctx.cmd_hdr = BUILD_NETWORK_HEADER(MGMT_OP_READ, cmd_len, FS_MGMT_ID_FILE);
+	return fs_send_cmd(transport, &fs_ctx.cmd_hdr, fs_ctx.cmd);
 }
 
 static int upload_chunk(struct zephyr_smp_transport *transport)
@@ -209,17 +278,14 @@ static int wait_for_response(void)
 /**************************************************************************************************/
 /* Global Function Definitions                                                                    */
 /**************************************************************************************************/
-int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *name)
+int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *name,
+			    const void *data, size_t *size)
 {
-	/* destination buffer and size
-	if (name == NULL || data == NULL || size == 0) {
+	int r;
+
+	if (name == NULL || data == NULL || size == NULL || *size == 0) {
 		return MGMT_ERR_EINVAL;
 	}
-	*/
-
-	int r;
-	size_t cmd_len = 0;
-	struct file_download_cmd file_download_cmd;
 
 	r = k_mutex_lock(&fs_client, K_NO_WAIT);
 	if (r < 0) {
@@ -228,32 +294,28 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
 
 	fs_ctx.status = 0;
 	fs_ctx.offset = 0;
-	fs_ctx.size = 0;
+	fs_ctx.size = *size; /* max size */
 	fs_ctx.name = name;
+	fs_ctx.data = (uint8_t *)data;
 
-	/* clang-format off */
-	file_download_cmd = (struct file_download_cmd) {
-		.offset = 0,
-		.name.value = name,
-		.name.len = strlen(name)
-	};
-	/* clang-format on */
+	k_sem_reset(&fs_ctx.busy);
 
-	if (cbor_encode_file_download_cmd(fs_ctx.cmd, sizeof(fs_ctx.cmd), &file_download_cmd,
-					  &cmd_len)) {
-		LOG_ERR("Unable to encode %s", __func__);
-		return MGMT_ERR_EINVAL;
-	}
+	/* Request file chunks in caller context.
+	 * Status, data, and offset are updated in a different context.
+	 */
+	do {
+		r = download_chunk(transport);
 
-	fs_ctx.cmd_hdr = BUILD_NETWORK_HEADER(MGMT_OP_READ, cmd_len, FS_MGMT_ID_FILE);
-	r = fs_send_cmd(transport, &fs_ctx.cmd_hdr, fs_ctx.cmd);
-
-	if (r == 0) {
-		if (k_sem_take(&fs_ctx.busy, K_SECONDS(CONFIG_FS_CMD_TIMEOUT_SECONDS)) != 0) {
-			r = MGMT_ERR_ETIMEOUT;
+		if (r == 0) {
+			if (wait_for_response() != 0) {
+				r = MGMT_ERR_ETIMEOUT;
+			} else {
+				r = fs_ctx.status;
+			}
 		}
-	}
+	} while ((r == 0) && (fs_ctx.offset < fs_ctx.size));
 
+	*size = fs_ctx.size;
 	k_mutex_unlock(&fs_client);
 	return r;
 }
@@ -264,7 +326,7 @@ int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *na
 	int r;
 	int adjusted_mtu;
 
-#if 0
+#if 1
 	adjusted_mtu = transport->zst_get_mtu(NULL) - MCUMGR_OVERHEAD;
 	if (adjusted_mtu <= 0) {
 		return MGMT_ERR_TRANSPORT;

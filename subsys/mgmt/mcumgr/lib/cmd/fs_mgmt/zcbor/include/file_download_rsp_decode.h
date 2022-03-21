@@ -21,7 +21,7 @@
 
 uint_fast8_t cbor_decode_file_download_rsp(
 		const uint8_t *payload, size_t payload_len,
-		struct file_download_rsp *result,
+		void *v_result,
 		size_t *payload_len_out);
 
 

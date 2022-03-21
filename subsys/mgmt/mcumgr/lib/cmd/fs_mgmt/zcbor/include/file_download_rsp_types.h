@@ -22,16 +22,26 @@
  */
 #define DEFAULT_MAX_QTY 0
 
-struct file_download_rsp_len {
-	uint32_t _file_download_rsp_len;
-};
-
-struct file_download_rsp {
-	uint32_t _file_download_rsp_offset;
-	struct zcbor_string _file_download_rsp_data;
-	int32_t _file_download_rsp_rc;
-	struct file_download_rsp_len _file_download_rsp_len;
-	uint_fast32_t _file_download_rsp_len_present;
+struct file_download_rsp_len {
+
+	uint32_t len;
+
+};
+
+
+
+struct file_download_rsp {
+
+	uint32_t offset;
+
+	struct zcbor_string data;
+
+	int32_t rc;
+
+	struct file_download_rsp_len len;
+
+	uint_fast32_t len_present;
+
 };
 
 
