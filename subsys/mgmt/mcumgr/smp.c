@@ -181,7 +181,7 @@ zephyr_smp_tx_rsp(struct smp_streamer *ns, void *rsp, void *arg)
 	mtu = zst->zst_get_mtu(rsp);
 	if (mtu == 0U) {
 		/* The transport cannot support a transmission right now. */
-		return MGMT_ERR_EUNKNOWN;
+		return MGMT_ERR_TRANSPORT;
 	}
 
 	if (nb->len > mtu) {
@@ -317,7 +317,7 @@ zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
 	int rc;
 
 	if (!zst || !cmd_hdr || !cbor_data || cmd_hdr->nh_len == 0) {
-		return -EINVAL;
+		return MGMT_ERR_EINVAL;
 	}
 
 	streamer = (struct smp_streamer) {
@@ -333,7 +333,7 @@ zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
 	cmd = NULL;
 	cmd = mgmt_streamer_alloc_rsp(&streamer.mgmt_stmr, cmd);
 	if (cmd == NULL) {
-		return -ENOMEM;
+		return MGMT_ERR_ENOMEM;
 	}
 
 	rc = mgmt_streamer_init_writer(&streamer.mgmt_stmr, cmd);

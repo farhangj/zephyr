@@ -11,14 +11,12 @@
 extern "C" {
 #endif
 
-/* *** todo: limited to UART transport *** */
-
 /**
  * @brief Read a file
  *
  * @param transport to send message on
  * @param name of file to read from mgmt server
- * @return int 0 on success, negative errno
+ * @return int 0 on success, MGMT_ERR_[...] code on failure
  */
 int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *name);
 
@@ -29,7 +27,7 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
  * @param name of file to write to mgmt server
  * @param data to write
  * @param size of data
- * @return int 0 on success, negative errno
+ * @return int 0 on success, MGMT_ERR_[...] code on failure
  */
 int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *name,
 			  const void *data, size_t size);

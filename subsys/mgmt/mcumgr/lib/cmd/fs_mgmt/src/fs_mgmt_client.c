@@ -145,6 +145,7 @@ static int upload_rsp_handler(struct mgmt_ctxt *ctxt)
 
 		if ((file_upload_rsp.rc == 0) && (file_upload_rsp.off <= fs_ctx.size) &&
 		    (file_upload_rsp.off == fs_ctx.offset + fs_ctx.chunk_size)) {
+			/* Prepare for next chunk */
 			fs_ctx.offset = file_upload_rsp.off;
 			fs_ctx.chunk_size =
 				MIN(fs_ctx.chunk_size, (fs_ctx.size - file_upload_rsp.off));
@@ -193,7 +194,7 @@ static int upload_chunk(struct zephyr_smp_transport *transport)
 	r = cbor_encode_file_upload_cmd(fs_ctx.cmd, sizeof(fs_ctx.cmd), &file_upload_cmd, &cmd_len);
 	if (r != 0) {
 		LOG_ERR("Unable to encode fs upload chunk %s", zcbor_get_error_string(r));
-		return -EINVAL;
+		return MGMT_ERR_EINVAL;
 	}
 
 	fs_ctx.cmd_hdr = BUILD_NETWORK_HEADER(MGMT_OP_WRITE, cmd_len, FS_MGMT_ID_FILE);
@@ -212,7 +213,7 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
 {
 	/* destination buffer and size
 	if (name == NULL || data == NULL || size == 0) {
-		return -EINVAL;
+		return MGMT_ERR_EINVAL;
 	}
 	*/
 
@@ -222,7 +223,7 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
 
 	r = k_mutex_lock(&fs_client, K_NO_WAIT);
 	if (r < 0) {
-		return r;
+		return MGMT_ERR_BUSY;
 	}
 
 	fs_ctx.status = 0;
@@ -241,7 +242,7 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
 	if (cbor_encode_file_download_cmd(fs_ctx.cmd, sizeof(fs_ctx.cmd), &file_download_cmd,
 					  &cmd_len)) {
 		LOG_ERR("Unable to encode %s", __func__);
-		return -EINVAL;
+		return MGMT_ERR_EINVAL;
 	}
 
 	fs_ctx.cmd_hdr = BUILD_NETWORK_HEADER(MGMT_OP_READ, cmd_len, FS_MGMT_ID_FILE);
@@ -249,7 +250,7 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
 
 	if (r == 0) {
 		if (k_sem_take(&fs_ctx.busy, K_SECONDS(CONFIG_FS_CMD_TIMEOUT_SECONDS)) != 0) {
-			r = -ETIMEDOUT;
+			r = MGMT_ERR_ETIMEOUT;
 		}
 	}
 
@@ -266,19 +267,19 @@ int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *na
 #if 0
 	adjusted_mtu = transport->zst_get_mtu(NULL) - MCUMGR_OVERHEAD;
 	if (adjusted_mtu <= 0) {
-		return -EIO;
+		return MGMT_ERR_TRANSPORT;
 	}
 #else
 	adjusted_mtu = 300;
 #endif
 
 	if (name == NULL || data == NULL || size == 0) {
-		return -EINVAL;
+		return MGMT_ERR_EINVAL;
 	}
 
 	r = k_mutex_lock(&fs_client, K_NO_WAIT);
 	if (r < 0) {
-		return r;
+		return MGMT_ERR_BUSY;
 	}
 
 	fs_ctx.status = 0;
@@ -290,12 +291,15 @@ int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *na
 
 	k_sem_reset(&fs_ctx.busy);
 
+	/* Send file chunks in caller context.
+	 * Status and offset are updated in a different context.
+	 */
 	do {
 		r = upload_chunk(transport);
 
 		if (r == 0) {
 			if (wait_for_response() != 0) {
-				r = -ETIMEDOUT;
+				r = MGMT_ERR_ETIMEOUT;
 			} else {
 				r = fs_ctx.status;
 			}

@@ -58,7 +58,9 @@ extern "C" {
 #define MGMT_ERR_NO_CLIENT	10	   /* Client handler not found */
 #define MGMT_ERR_DECODE		11
 #define MGMT_ERR_ENCODE		12
-#define MGMT_ERR_OFFSET     13
+#define MGMT_ERR_OFFSET		13
+#define MGMT_ERR_TRANSPORT	14
+#define MGMT_ERR_BUSY		15
 #define MGMT_ERR_EPERUSER	256
 
 #define MGMT_HDR_SIZE		8
