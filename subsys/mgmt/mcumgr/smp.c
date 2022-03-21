@@ -193,7 +193,6 @@ zephyr_smp_tx(struct smp_streamer *ns, void *rsp, void *arg)
 	while (nb != NULL) {
 		frag = zephyr_smp_split_frag(&nb, zst, mtu);
 		if (frag == NULL) {
-			zephyr_smp_free_buf(nb, zst);
 			return MGMT_ERR_ENOMEM;
 		}
 
@@ -268,7 +267,7 @@ zephyr_smp_handle_reqs(struct k_work *work)
 	zst = (void *)work;
 
 	while ((nb = net_buf_get(&zst->zst_fifo, K_NO_WAIT)) != NULL) {
-		zephyr_smp_process_packet(zst, nb);
+		(void)zephyr_smp_process_packet(zst, nb);
 	}
 }
 

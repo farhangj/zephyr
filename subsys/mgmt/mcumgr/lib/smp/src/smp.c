@@ -285,8 +285,7 @@ smp_handle_single_req(struct smp_streamer *streamer, const struct mgmt_hdr *req_
 }
 
 /**
- * Attempts to transmit an SMP error response.  This function consumes both
- * supplied buffers.
+ * Attempts to transmit an SMP error response.
  *
  * @param streamer	The SMP streamer for building and transmitting the response.
  * @param req_hdr	The header of the request which elicited the error.
@@ -315,13 +314,13 @@ smp_on_err(struct smp_streamer *streamer, const struct mgmt_hdr *req_hdr,
 	/* Build and transmit the error response. */
 	rc = smp_build_err_rsp(streamer, req_hdr, status);
 	if (rc == 0) {
-		streamer->tx_cb(streamer, rsp, streamer->mgmt_stmr.cb_arg);
-		rsp = NULL;
+		rc = streamer->tx_cb(streamer, rsp, streamer->mgmt_stmr.cb_arg);
 	}
 
-	/* Free any extra buffers. */
-	mgmt_streamer_free_buf(&streamer->mgmt_stmr, req);
-	mgmt_streamer_free_buf(&streamer->mgmt_stmr, rsp);
+	if (rc != 0) {
+		LOG_ERR("Unable to send SMP error response %d", rc);
+	}
+
 }
 
 /**
@@ -345,7 +344,7 @@ smp_process_command_packet(struct smp_streamer *streamer, void *pkt,
 
 	rsp = NULL;
 
-	while (1) {
+	do {
 		rsp = mgmt_streamer_alloc_rsp(&streamer->mgmt_stmr, pkt);
 		if (rsp == NULL) {
 			rc = MGMT_ERR_ENOMEM;
@@ -365,7 +364,6 @@ smp_process_command_packet(struct smp_streamer *streamer, void *pkt,
 
 		/* Send the response. */
 		rc = streamer->tx_cb(streamer, rsp, streamer->mgmt_stmr.cb_arg);
-		rsp = NULL;
 		if (rc != 0) {
 			break;
 		}
@@ -374,16 +372,14 @@ smp_process_command_packet(struct smp_streamer *streamer, void *pkt,
 		mgmt_streamer_trim_front(&streamer->mgmt_stmr, pkt, smp_align4(pkt_hdr->nh_len));
 
 		rc = MGMT_ERR_EOK;
-		break;
-	}
+	} while(0);
 
 	if (rc != 0) {
 		smp_on_err(streamer, pkt_hdr, pkt, rsp, rc);
-		return rc;
 	}
 
 	mgmt_streamer_free_buf(&streamer->mgmt_stmr, rsp);
-	return 0;
+	return rc;
 }
 
 static int
