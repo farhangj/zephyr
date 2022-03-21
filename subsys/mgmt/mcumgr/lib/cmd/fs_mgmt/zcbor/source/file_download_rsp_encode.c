@@ -38,13 +38,13 @@ static bool encode_file_download_rsp(
 	zcbor_print("%s\r\n", __func__);
 	struct zcbor_string tmp_str;
 
-	bool tmp_result = (((zcbor_map_start_encode(state, 4) && (((((zcbor_tstr_encode(state, ((tmp_str.value = (uint8_t *)"off", tmp_str.len = sizeof("off") - 1, &tmp_str)))))
-	&& (zcbor_uint32_encode(state, (&(*input).offset))))
-	&& (((zcbor_tstr_encode(state, ((tmp_str.value = (uint8_t *)"data", tmp_str.len = sizeof("data") - 1, &tmp_str)))))
-	&& (zcbor_bstr_encode(state, (&(*input).data))))
-	&& (((zcbor_tstr_encode(state, ((tmp_str.value = (uint8_t *)"rc", tmp_str.len = sizeof("rc") - 1, &tmp_str)))))
-	&& (zcbor_int32_encode(state, (&(*input).rc))))
-	&& zcbor_present_encode(&((*input).len_present), (zcbor_encoder_t *)encode_repeated_len, state, (&(*input).len))) || (zcbor_list_map_end_force_encode(state), false)) && zcbor_map_end_encode(state, 4))));
+	bool tmp_result = (((zcbor_map_start_encod(zcbor_tstr_encode(state, ((tmp_str.value = (uint8_t *)"off", tmp_str.len = sizeof("off") - 1, &tmp_str)))))
+	&& (zcbor_uint32_encode(state, (&(*input)._file_download_rsp_offset))))
+	&& (((zcbor_tstr_encode(state, ((tmp_str)"data", tmp_str.len = sizeof("data") - 1, &tmp_str)))))
+	&& (zcbor_bstr_encode(state, (&(*input)._file_download_rsp_data))))
+	&& (((zcbor_tstr_encode(state, ((tmp_str."rc", tmp_str.len = sizeof("rc") - 1, &tmp_str)))))
+	&& (zcbor_int32_encode(state, (&(*id_rsp_rc))))
+	&& zcbor_present_encode(&((*input)._file_download_rsp_len_present), (zcbor_encoder_t *)encode_repeated_file_download_rsp_len, state, (&(*input)._file_download_rsp_len))) || (zcbor_list_map_end_force_encode(state), false)) && zcbor_map_end_encode(state, 4))));
 
 	if (!tmp_result)
 		zcbor_trace();

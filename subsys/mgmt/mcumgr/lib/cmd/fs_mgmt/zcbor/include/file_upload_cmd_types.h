@@ -22,13 +22,23 @@
  */
 #define DEFAULT_MAX_QTY 0
 
+struct file_upload_cmd_len {
+
+	uint32_t len;
+
+};
+
+
+
 struct file_upload_cmd {
 
 	uint32_t offset;
 
 	struct zcbor_string data;
 
-	uint32_t len;
+	struct file_upload_cmd_len len;
+
+	uint_fast32_t len_present;
 
 	struct zcbor_string name;
 

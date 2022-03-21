@@ -188,14 +188,14 @@ static int upload_rsp_handler(struct mgmt_ctxt *ctxt)
 			r = error_rsp.rc;
 		}
 	} else {
-		LOG_DBG("rc: %d off: %u", file_upload_rsp.rc, file_upload_rsp.off);
+		LOG_DBG("rc: %d off: %u", file_upload_rsp.rc, file_upload_rsp.offset);
 
-		if ((file_upload_rsp.rc == 0) && (file_upload_rsp.off <= fs_ctx.size) &&
-		    (file_upload_rsp.off == fs_ctx.offset + fs_ctx.chunk_size)) {
+		if ((file_upload_rsp.rc == 0) && (file_upload_rsp.offset <= fs_ctx.size) &&
+		    (file_upload_rsp.offset == fs_ctx.offset + fs_ctx.chunk_size)) {
 			/* Prepare for next chunk */
-			fs_ctx.offset = file_upload_rsp.off;
+			fs_ctx.offset = file_upload_rsp.offset;
 			fs_ctx.chunk_size =
-				MIN(fs_ctx.chunk_size, (fs_ctx.size - file_upload_rsp.off));
+				MIN(fs_ctx.chunk_size, (fs_ctx.size - file_upload_rsp.offset));
 			r = MGMT_ERR_EOK;
 		} else {
 			r = MGMT_ERR_OFFSET;
@@ -227,7 +227,7 @@ static int download_chunk(struct zephyr_smp_transport *transport)
 	int r;
 	size_t cmd_len = 0;
 	/* clang-format off */
-	struct file_download_cmd file_download_cmd = (struct file_download_cmd) {
+	struct file_download_cmd file_download_cmd = {
 		.offset = fs_ctx.offset,
 		.name.value = fs_ctx.name,
 		.name.len = strlen(fs_ctx.name)
@@ -254,7 +254,8 @@ static int upload_chunk(struct zephyr_smp_transport *transport)
 		.offset = fs_ctx.offset,
 		.data.value = fs_ctx.data + fs_ctx.offset,
 		.data.len = fs_ctx.chunk_size,
-		.len = fs_ctx.size,
+		.len_present = true,
+		.len.len = fs_ctx.size,
 		.name.value = fs_ctx.name,
 		.name.len = strlen(fs_ctx.name)
 	};

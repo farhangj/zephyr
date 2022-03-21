@@ -26,7 +26,7 @@ struct file_upload_rsp {
 
 	int32_t rc;
 
-	uint32_t off;
+	uint32_t offset;
 
 };
 

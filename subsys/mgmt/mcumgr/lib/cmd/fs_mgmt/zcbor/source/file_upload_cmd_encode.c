@@ -16,6 +16,22 @@
 #endif
 
 
+static bool encode_repeated_len(
+		zcbor_state_t *state, const struct file_upload_cmd_len *input)
+{
+	zcbor_print("%s\r\n", __func__);
+	struct zcbor_string tmp_str;
+
+	bool tmp_result = ((((zcbor_tstr_encode(state, ((tmp_str.value = (uint8_t *)"len", tmp_str.len = sizeof("len") - 1, &tmp_str)))))
+	&& (zcbor_uint32_encode(state, (&(*input).len)))));
+
+	if (!tmp_result)
+		zcbor_trace();
+
+	return tmp_result;
+}
+
+
 static bool encode_file_upload_cmd(
 		zcbor_state_t *state, const struct file_upload_cmd *input)
 {
@@ -26,8 +42,7 @@ static bool encode_file_upload_cmd(
 	&& (zcbor_uint32_encode(state, (&(*input).offset))))
 	&& (((zcbor_tstr_encode(state, ((tmp_str.value = (uint8_t *)"data", tmp_str.len = sizeof("data") - 1, &tmp_str)))))
 	&& (zcbor_bstr_encode(state, (&(*input).data))))
-	&& (((zcbor_tstr_encode(state, ((tmp_str.value = (uint8_t *)"len", tmp_str.len = sizeof("len") - 1, &tmp_str)))))
-	&& (zcbor_uint32_encode(state, (&(*input).len))))
+	&& zcbor_present_encode(&((*input).len_present), (zcbor_encoder_t *)encode_repeated_len, state, (&(*input).len))
 	&& (((zcbor_tstr_encode(state, ((tmp_str.value = (uint8_t *)"name", tmp_str.len = sizeof("name") - 1, &tmp_str)))))
 	&& (zcbor_tstr_encode(state, (&(*input).name))))) || (zcbor_list_map_end_force_encode(state), false)) && zcbor_map_end_encode(state, 4))));
 

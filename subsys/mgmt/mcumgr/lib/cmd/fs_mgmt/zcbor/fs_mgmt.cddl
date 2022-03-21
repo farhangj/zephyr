@@ -16,7 +16,7 @@ file_download_rsp = {
 file_upload_cmd = {
     "off" : (offset:uint),
     "data" : (bstr),
-    "len" : (uint),
+    ?"len" : (uint),
     "name" : (tstr)
 }
 
