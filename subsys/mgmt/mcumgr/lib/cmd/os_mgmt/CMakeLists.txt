@@ -29,7 +29,6 @@ endif()
 if(CONFIG_MCUMGR_CLIENT_OS_MGMT)
 zephyr_library_sources(
     src/os_mgmt_client.c
-    #zcbor/source/echo_error_rsp_decode.c
 )
 
 zephyr_library_sources_ifdef(CONFIG_OS_MGMT_ECHO
