@@ -8,5 +8,5 @@ SET both=-c os_mgmt.cddl --default-max-qty 0 code -d -e -t
 SET oc=.\source
 SET oh=.\include
 
-FOR %%x IN (echo_cmd, echo_rsp, echo_error_rsp) DO zcbor %both% %%x --oc %oc%\%%x.c --oh %oh%\%%x.h
+FOR %%x IN (echo_cmd, echo_rsp) DO zcbor %both% %%x --oc %oc%\%%x.c --oh %oh%\%%x.h
 

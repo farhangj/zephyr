@@ -30,7 +30,6 @@ LOG_MODULE_REGISTER(fs_mgmt_client, CONFIG_MCUMGR_CLIENT_FS_LOG_LEVEL);
 #include "file_download_rsp_decode.h"
 #include "file_upload_cmd_encode.h"
 #include "file_upload_rsp_decode.h"
-#include "error_rsp_decode.h"
 #include "zcbor_mgmt.h"
 
 #include "fs_mgmt/fs_mgmt_impl.h"
