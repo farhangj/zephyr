@@ -63,8 +63,6 @@ static const struct mgmt_handler FS_MGMT_CLIENT_HANDLERS[] = {
 };
 /* clang-format on */
 
-static struct mgmt_on_evt_cb_entry fs_cb_entry;
-
 /**************************************************************************************************/
 /* Local Data Definitions                                                                         */
 /**************************************************************************************************/
@@ -73,6 +71,8 @@ static struct mgmt_group fs_mgmt_client_group = {
 	.mg_handlers_count = (sizeof FS_MGMT_CLIENT_HANDLERS / sizeof FS_MGMT_CLIENT_HANDLERS[0]),
 	.mg_group_id = MGMT_GROUP_ID_FS,
 };
+
+static struct mgmt_on_evt_cb_entry fs_cb_entry;
 
 static K_MUTEX_DEFINE(fs_client);
 
@@ -229,6 +229,7 @@ static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 
 		fs_ctx.status =
 			arg ? ((struct mgmt_evt_op_cmd_done_arg *)arg)->err : MGMT_ERR_EUNKNOWN;
+
 		k_sem_give(&fs_ctx.busy);
 	}
 }
@@ -249,7 +250,7 @@ static int download_chunk(struct zephyr_smp_transport *transport)
 					  &cmd_len);
 	if (r != 0) {
 		LOG_ERR("Unable to encode fs download chunk %s", zcbor_get_error_string(r));
-		return MGMT_ERR_EINVAL;
+		return MGMT_ERR_ENCODE;
 	}
 
 	fs_ctx.cmd_hdr = BUILD_NETWORK_HEADER(MGMT_OP_READ, cmd_len, FS_MGMT_ID_FILE);
@@ -327,7 +328,7 @@ static int upload_chunk(struct zephyr_smp_transport *transport)
 						&cmd_len);
 		if (r != 0) {
 			LOG_ERR("Unable to encode fs upload chunk %s", zcbor_get_error_string(r));
-			r = MGMT_ERR_EINVAL;
+			r = MGMT_ERR_ENCODE;
 			break;
 		}
 
