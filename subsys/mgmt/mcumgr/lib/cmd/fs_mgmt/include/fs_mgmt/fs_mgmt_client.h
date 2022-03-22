@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 /**
- * @brief Read a file
+ * @brief Read a remote file into a buffer
  *
  * @param transport to send message on
  * @param name of file to read from mgmt server
@@ -22,6 +22,18 @@ extern "C" {
  */
 int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *name,
 			  void *data, size_t *size);
+
+/**
+ * @brief Read a remote file into a local file
+ *
+ * @param transport to send message on
+ * @param remote_name of file to read from mgmt server
+ * @param local_name of file to write
+ * @param size max size of data (input), actual size of data (output)
+ * @return int 0 on success, MGMT_ERR_[...] code on failure
+ */
+int fs_mgmt_client_download_file(struct zephyr_smp_transport *transport, const char *remote_name,
+				 const char *local_name, size_t *size);
 
 /**
  * @brief Write a file
@@ -34,6 +46,17 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
  */
 int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *name,
 			  const void *data, size_t size);
+
+/**
+ * @brief Write a file
+ *
+ * @param transport to send message on
+ * @param name of file to write to mgmt server
+ * @param local_name of file to read
+ * @return int 0 on success, MGMT_ERR_[...] code on failure
+ */
+int fs_mgmt_client_upload_file(struct zephyr_smp_transport *transport, const char *name,
+			       const char *local_name);
 
 #ifdef __cplusplus
 }

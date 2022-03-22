@@ -33,6 +33,7 @@ LOG_MODULE_REGISTER(fs_mgmt_client, CONFIG_MCUMGR_CLIENT_FS_LOG_LEVEL);
 #include "error_rsp_decode.h"
 #include "zcbor_mgmt.h"
 
+#include "fs_mgmt/fs_mgmt_impl.h"
 #include "fs_mgmt/fs_mgmt_config.h"
 #include "fs_mgmt/fs_mgmt.h"
 
@@ -87,6 +88,7 @@ static struct {
 	size_t chunk_size;
 	uint8_t *data;
 	const char *name;
+	const char *local_name;
 } fs_ctx;
 
 /**************************************************************************************************/
@@ -161,8 +163,13 @@ static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 		fs_ctx.chunk_size = file_download_rsp.data.len;
 		if (((file_download_rsp.offset + fs_ctx.chunk_size) <= fs_ctx.size) &&
 		    (fs_ctx.offset == file_download_rsp.offset)) {
-			memcpy(fs_ctx.data + fs_ctx.offset, file_download_rsp.data.value,
-			       fs_ctx.chunk_size);
+			if (fs_ctx.local_name != NULL) {
+				fs_mgmt_impl_write(fs_ctx.local_name, fs_ctx.offset,
+						   file_download_rsp.data.value, fs_ctx.chunk_size);
+			} else {
+				memcpy(fs_ctx.data + fs_ctx.offset, file_download_rsp.data.value,
+				       fs_ctx.chunk_size);
+			}
 			fs_ctx.offset += fs_ctx.chunk_size;
 			r = MGMT_ERR_EOK;
 		} else {
@@ -183,8 +190,10 @@ static int upload_rsp_handler(struct mgmt_ctxt *ctxt)
 		return r;
 	}
 
-	if (zcbor_mgmt_decode(ctxt, cbor_decode_file_upload_rsp, &file_upload_rsp, true) != 0) {
-		if (zcbor_mgmt_decode(ctxt, cbor_decode_error_rsp, &error_rsp, false) != 0) {
+	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_file_upload_rsp,
+			      &file_upload_rsp, true) != 0) {
+		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_error_rsp,
+				      &error_rsp, false) != 0) {
 			r = MGMT_ERR_DECODE;
 		} else {
 			r = error_rsp.rc;
@@ -281,11 +290,12 @@ static int upload_chunk(struct zephyr_smp_transport *transport)
 {
 	int r;
 	size_t cmd_len = 0;
+	void * buf = NULL;
+	size_t buf_size;
+
 	/* clang-format off */
 	struct file_upload_cmd file_upload_cmd = {
 		.offset = fs_ctx.offset,
-		.data.value = fs_ctx.data + fs_ctx.offset,
-		.data.len = fs_ctx.chunk_size,
 		.len_present = true,
 		.len.len = fs_ctx.size,
 		.name.value = fs_ctx.name,
@@ -293,14 +303,42 @@ static int upload_chunk(struct zephyr_smp_transport *transport)
 	};
 	/* clang-format on */
 
-	r = cbor_encode_file_upload_cmd(fs_ctx.cmd, sizeof(fs_ctx.cmd), &file_upload_cmd, &cmd_len);
-	if (r != 0) {
-		LOG_ERR("Unable to encode fs upload chunk %s", zcbor_get_error_string(r));
-		return MGMT_ERR_EINVAL;
-	}
+	do {
+		if (fs_ctx.local_name != NULL) {
+			buf_size = fs_ctx.chunk_size;
+			buf = k_malloc(buf_size);
+			if (buf == NULL) {
+				r = MGMT_ERR_ENOMEM;
+				break;
+			}
 
-	fs_ctx.cmd_hdr = BUILD_NETWORK_HEADER(MGMT_OP_WRITE, cmd_len, FS_MGMT_ID_FILE);
-	return fs_send_cmd(transport, &fs_ctx.cmd_hdr, fs_ctx.cmd);
+			r = fs_mgmt_impl_read(fs_ctx.local_name, fs_ctx.offset, buf_size, buf,
+					      &fs_ctx.chunk_size);
+			if (r != 0) {
+				break;
+			}
+			file_upload_cmd.data.value = buf;
+			file_upload_cmd.data.len = fs_ctx.chunk_size;
+		} else {
+			file_upload_cmd.data.value = fs_ctx.data + fs_ctx.offset;
+			file_upload_cmd.data.len = fs_ctx.chunk_size;
+		}
+
+		r = cbor_encode_file_upload_cmd(fs_ctx.cmd, sizeof(fs_ctx.cmd), &file_upload_cmd,
+						&cmd_len);
+		if (r != 0) {
+			LOG_ERR("Unable to encode fs upload chunk %s", zcbor_get_error_string(r));
+			r = MGMT_ERR_EINVAL;
+			break;
+		}
+
+		fs_ctx.cmd_hdr = BUILD_NETWORK_HEADER(MGMT_OP_WRITE, cmd_len, FS_MGMT_ID_FILE);
+		r = fs_send_cmd(transport, &fs_ctx.cmd_hdr, fs_ctx.cmd);
+
+	} while (0);
+
+	k_free(buf);
+	return r;
 }
 
 /* Send file chunks in caller context.
@@ -349,6 +387,35 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
 	fs_ctx.size = *size; /* max size */
 	fs_ctx.name = name;
 	fs_ctx.data = (uint8_t *)data;
+	fs_ctx.local_name = NULL;
+
+	r = download(transport);
+
+	*size = fs_ctx.size;
+	k_mutex_unlock(&fs_client);
+	return r;
+}
+
+int fs_mgmt_client_download_file(struct zephyr_smp_transport *transport, const char *remote_name,
+				 const char *local_name, size_t *size)
+{
+	int r;
+
+	if (remote_name == NULL || local_name == NULL || size == NULL || *size == 0) {
+		return MGMT_ERR_EINVAL;
+	}
+
+	r = k_mutex_lock(&fs_client, K_NO_WAIT);
+	if (r < 0) {
+		return MGMT_ERR_BUSY;
+	}
+
+	fs_ctx.status = 0;
+	fs_ctx.offset = 0;
+	fs_ctx.size = *size;
+	fs_ctx.name = remote_name;
+	fs_ctx.data = 0;
+	fs_ctx.local_name = local_name;
 
 	r = download(transport);
 
@@ -387,6 +454,51 @@ int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *na
 	fs_ctx.chunk_size = MIN(size, adjusted_mtu);
 	fs_ctx.name = name;
 	fs_ctx.data = (uint8_t *)data;
+	fs_ctx.local_name = NULL;
+
+	r = upload(transport);
+
+	k_mutex_unlock(&fs_client);
+	return r;
+}
+
+int fs_mgmt_client_upload_file(struct zephyr_smp_transport *transport, const char *name,
+			       const char *local_name)
+{
+	int r;
+	int adjusted_mtu;
+	size_t size;
+
+	adjusted_mtu = transport->zst_get_mtu(NULL) - MCUMGR_OVERHEAD;
+	if (adjusted_mtu <= 0) {
+		return MGMT_ERR_TRANSPORT;
+	}
+
+	if (name == NULL || local_name == NULL) {
+		return MGMT_ERR_EINVAL;
+	}
+
+	r = fs_mgmt_impl_filelen(local_name, &size);
+	if (r != 0) {
+		return r;
+	}
+
+	if (size == 0) {
+		return MGMT_ERR_EINVAL;
+	}
+
+	r = k_mutex_lock(&fs_client, K_NO_WAIT);
+	if (r < 0) {
+		return MGMT_ERR_BUSY;
+	}
+
+	fs_ctx.status = 0;
+	fs_ctx.offset = 0;
+	fs_ctx.size = size;
+	fs_ctx.chunk_size = MIN(size, adjusted_mtu);
+	fs_ctx.name = name;
+	fs_ctx.data = 0;
+	fs_ctx.local_name = local_name;
 
 	r = upload(transport);
 
