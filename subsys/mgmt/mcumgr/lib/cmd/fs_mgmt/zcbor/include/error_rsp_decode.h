@@ -21,7 +21,7 @@
 
 uint_fast8_t cbor_decode_error_rsp(
 		const uint8_t *payload, size_t payload_len,
-		void *v_result,
+		struct error_rsp *result,
 		size_t *payload_len_out);
 
 

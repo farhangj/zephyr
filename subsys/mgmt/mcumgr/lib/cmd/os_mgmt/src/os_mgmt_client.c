@@ -70,7 +70,7 @@ static int os_mgmt_client_echo(struct mgmt_ctxt *ctxt)
 {
 	struct echo_rsp echo_rsp;
 
-	if (zcbor_mgmt_decode(ctxt, cbor_decode_echo_rsp, &echo_rsp, true) != 0) {
+	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_echo_rsp, &echo_rsp, true) != 0) {
 		return MGMT_ERR_DECODE;
 	}
 

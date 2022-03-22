@@ -129,8 +129,10 @@ static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 		return r;
 	}
 
-	if (zcbor_mgmt_decode(ctxt, cbor_decode_file_download_rsp, &file_download_rsp, true) != 0) {
-		if (zcbor_mgmt_decode(ctxt, cbor_decode_error_rsp, &error_rsp, false) != 0) {
+	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_file_download_rsp,
+			      &file_download_rsp, true) != 0) {
+		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_error_rsp,
+				      &error_rsp, false) != 0) {
 			r = MGMT_ERR_DECODE;
 		} else {
 			r = error_rsp.rc;

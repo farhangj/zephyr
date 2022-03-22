@@ -56,14 +56,12 @@ static bool decode_file_download_rsp(
 
 uint_fast8_t cbor_decode_file_download_rsp(
 		const uint8_t *payload, size_t payload_len,
-		void *v_result,
+		struct file_download_rsp * result,
 		size_t *payload_len_out)
 {
 	zcbor_state_t states[3];
 
 	zcbor_new_state(states, sizeof(states) / sizeof(zcbor_state_t), payload, payload_len, 1);
-
-	struct file_download_rsp *result = v_result;
 
 	bool ret = decode_file_download_rsp(states, result);
 
