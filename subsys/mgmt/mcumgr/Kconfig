@@ -251,6 +251,12 @@ module-str=MGMT_OS
 source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
 
 if MCUMGR_CMD_OS_MGMT
+
+config OS_MGMT_ZCBOR
+	bool "Use zcbor"
+	depends on ZCBOR
+	depends on ZCBOR_MGMT
+
 config OS_MGMT_RESET_MS
 	int "Delay before executing reset command (ms)"
 	default 250
@@ -285,6 +291,8 @@ endif
 
 menuconfig MCUMGR_CLIENT_OS_MGMT
 	bool "Enable mcumgr client handlers for OS management"
+	depends on ZCBOR
+	depends on ZCBOR_MGMT
 
 module=MGMT_CLIENT_OS
 module-dep=LOG
