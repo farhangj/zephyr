@@ -125,7 +125,7 @@ void zephyr_smp_rx_req(struct zephyr_smp_transport *zst, struct net_buf *nb);
  * @param cbor_data             The CBOR data of the request
  */
 int zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
-		      const void *cbor_data);
+		      const void *cbor_data, const void* user_data, uint16_t ud_len);
 
 #ifdef __cplusplus
 }
