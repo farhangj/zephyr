@@ -401,7 +401,7 @@ mgmt_get_string_err(int err)
 	case MGMT_ERR_EBADSTATE:
 		return "6-Current state disallows command";
 	case MGMT_ERR_EMSGSIZE:
-		return "7-Message too large";
+		return "7-Message too large for transport";
 	case MGMT_ERR_ENOTSUP:
 		return "8-Command not supported";
 	case MGMT_ERR_ECORRUPT:
@@ -414,6 +414,12 @@ mgmt_get_string_err(int err)
 		return "12-Encode";
 	case MGMT_ERR_OFFSET:
 		return "13-Offset";
+	case MGMT_ERR_TRANSPORT:
+		return "14-Transport";
+	case MGMT_ERR_BUSY:
+		return "15-Busy";
+	case MGMT_ERR_WRITE:
+		return "16-Write Transport";
 	default:
 		return "?";
 	}
