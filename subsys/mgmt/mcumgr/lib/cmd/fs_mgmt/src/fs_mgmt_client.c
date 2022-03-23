@@ -12,19 +12,9 @@ LOG_MODULE_REGISTER(fs_mgmt_client, CONFIG_MCUMGR_CLIENT_FS_LOG_LEVEL);
 /**************************************************************************************************/
 /* Includes                                                                                       */
 /**************************************************************************************************/
-#include <zephyr.h>
 #include <init.h>
-#include <limits.h>
-#include <string.h>
-#include <tinycbor/cbor.h>
-#include <tinycbor/cbor_buf_writer.h>
-#include <cborattr/cborattr.h>
-#include <net/buf.h>
 
-#include <mgmt/mgmt.h>
 #include <mgmt/endian.h>
-#include <mgmt/mcumgr/smp.h>
-#include <mgmt/mcumgr/buf.h>
 
 #include "file_download_cmd_encode.h"
 #include "file_download_rsp_decode.h"
@@ -35,6 +25,7 @@ LOG_MODULE_REGISTER(fs_mgmt_client, CONFIG_MCUMGR_CLIENT_FS_LOG_LEVEL);
 #include "fs_mgmt/fs_mgmt_impl.h"
 #include "fs_mgmt/fs_mgmt_config.h"
 #include "fs_mgmt/fs_mgmt.h"
+#include "fs_mgmt/fs_mgmt_client.h"
 
 /**************************************************************************************************/
 /* Local Function Prototypes                                                                      */
@@ -115,8 +106,11 @@ SYS_INIT(fs_mgmt_client_init, APPLICATION, 99);
 static int fs_send_cmd(struct zephyr_smp_transport *transport, struct mgmt_hdr *hdr,
 		       const void *cbor_data)
 {
-	int r = zephyr_smp_tx_cmd(transport, hdr, cbor_data);
-	fs_ctx.sequence = (r == 0) ? hdr->nh_seq : -1;
+	int r;
+
+	fs_ctx.sequence = hdr->nh_seq;
+	r = zephyr_smp_tx_cmd(transport, hdr, cbor_data);
+	
 	return r;
 }
 
@@ -369,7 +363,7 @@ static int upload(struct zephyr_smp_transport *transport)
 /* Global Function Definitions                                                                    */
 /**************************************************************************************************/
 int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *name,
-			    const void *data, size_t *size)
+			  void *data, size_t *size)
 {
 	int r;
 

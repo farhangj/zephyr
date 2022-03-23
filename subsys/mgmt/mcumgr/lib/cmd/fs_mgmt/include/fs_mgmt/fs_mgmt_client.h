@@ -11,6 +11,10 @@
 extern "C" {
 #endif
 
+#include <zephyr.h>
+#include <mgmt/mgmt.h>
+#include <mgmt/mcumgr/smp.h>
+
 /**
  * @brief Read a remote file into a buffer
  *
