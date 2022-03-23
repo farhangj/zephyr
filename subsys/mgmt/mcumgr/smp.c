@@ -329,28 +329,38 @@ zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
 		.tx_cb = zephyr_smp_tx,
 	};
 
-	cmd = NULL;
-	cmd = mgmt_streamer_alloc_rsp(&streamer.mgmt_stmr, cmd);
-	if (cmd == NULL) {
-		return MGMT_ERR_ENOMEM;
-	}
+	do {
+		cmd = NULL;
+		cmd = mgmt_streamer_alloc_rsp(&streamer.mgmt_stmr, cmd);
+		if (cmd == NULL) {
+			while (1)
+				;
+			rc = MGMT_ERR_ENOMEM;
+			break;
+		}
 
-	rc = mgmt_streamer_init_writer(&streamer.mgmt_stmr, cmd);
-	if (rc != 0) {
-		return rc;
-	}
+		rc = mgmt_streamer_init_writer(&streamer.mgmt_stmr, cmd);
+		if (rc != 0) {
+			break;
+		}
 
-	rc = writer.enc.write(&writer.enc, (const char *)cmd_hdr, sizeof(*cmd_hdr));
-	if (rc != 0) {
-		return mgmt_err_from_cbor(rc);
-	}
+		rc = writer.enc.write(&writer.enc, (const char *)cmd_hdr, sizeof(*cmd_hdr));
+		if (rc != 0) {
+			rc = mgmt_err_from_cbor(rc);
+			break;
+		}
 
-	rc = writer.enc.write(&writer.enc, cbor_data, ntohs(cmd_hdr->nh_len));
-	if (rc != 0) {
-		return mgmt_err_from_cbor(rc);
-	}
+		rc = writer.enc.write(&writer.enc, cbor_data, ntohs(cmd_hdr->nh_len));
+		if (rc != 0) {
+			rc = mgmt_err_from_cbor(rc);
+			break;
+		}
 
-	rc = streamer.tx_cb(&streamer, cmd, streamer.mgmt_stmr.cb_arg);
-	mgmt_generate_cmd_sent_event(cmd_hdr, rc);
+		rc = streamer.tx_cb(&streamer, cmd, streamer.mgmt_stmr.cb_arg);
+		mgmt_generate_cmd_sent_event(cmd_hdr, rc);
+
+	} while(0);
+
+	mgmt_streamer_free_buf(&streamer.mgmt_stmr, cmd);
 	return rc;
 }

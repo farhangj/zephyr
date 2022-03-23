@@ -416,7 +416,7 @@ int smp_process_packet(struct smp_streamer *streamer, void *pkt)
 	struct mgmt_evt_op_cmd_done_arg rc;
 	uint8_t event;
 
-	while (1) {
+	do {
 		rc.err = mgmt_streamer_init_reader(&streamer->mgmt_stmr, pkt);
 		if (rc.err != 0) {
 			break;
@@ -439,10 +439,7 @@ int smp_process_packet(struct smp_streamer *streamer, void *pkt)
 		}
 
 		mgmt_evt(event, &pkt_hdr, &rc);
-		if (rc.err != 0) {
-			break;
-		}
-	}
+	} while(0);
 
 	mgmt_streamer_free_buf(&streamer->mgmt_stmr, pkt);
 	return 0;
