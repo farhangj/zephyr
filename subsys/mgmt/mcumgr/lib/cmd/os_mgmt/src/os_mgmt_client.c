@@ -91,9 +91,9 @@ static K_MUTEX_DEFINE(os_client);
 
 static struct {
 	struct k_sem busy;
-	uint8_t cmd[CONFIG_MCUMGR_BUF_SIZE];
 	int sequence;
 	volatile int status;
+	struct echo_cmd echo_cmd;
 } os_client_context;
 
 static int os_send_cmd(struct zephyr_smp_transport *transport, struct mgmt_hdr *hdr,
@@ -143,7 +143,7 @@ int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg,
 	int msg_length;
 	struct mgmt_hdr cmd_hdr;
 	size_t cmd_len = 0;
-	struct echo_cmd echo_cmd;
+	uint8_t cmd[CONFIG_MCUMGR_BUF_SIZE];
 
 	mtu = transport->zst_get_mtu(NULL);
 	if (mtu <= 0) {
@@ -166,11 +166,10 @@ int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg,
 
 	os_client_context.status = 0;
 
-	echo_cmd.d.value = msg;
-	echo_cmd.d.len = msg_length;
+	os_client_context.echo_cmd.d.value = msg;
+	os_client_context.echo_cmd.d.len = msg_length;
 
-	if (cbor_encode_echo_cmd(os_client_context.cmd, sizeof(os_client_context.cmd),
-					&echo_cmd, &cmd_len)) {
+	if (cbor_encode_echo_cmd(cmd, sizeof(cmd), &os_client_context.echo_cmd, &cmd_len)) {
 		LOG_ERR("Unable to encode %s", __func__);
 		return MGMT_ERR_ENCODE;
 	}
@@ -189,7 +188,7 @@ int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg,
 
 	LOG_HEXDUMP_INF(msg, msg_length, "Echo cmd");
 
-	r = os_send_cmd(transport, &cmd_hdr, os_client_context.cmd);
+	r = os_send_cmd(transport, &cmd_hdr, cmd);
 
 	k_mutex_unlock(&os_client);
 	return r;
@@ -205,8 +204,8 @@ static int os_mgmt_client_echo_handler(struct mgmt_ctxt *ctxt)
 		return MGMT_ERR_EBADSTATE;
 	}
 
-	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_echo_rsp,
-			      &echo_rsp, true) != 0) {
+	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_echo_rsp, &echo_rsp,
+			      true) != 0) {
 		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_error_rsp,
 				      &error_rsp, false) != 0) {
 			return MGMT_ERR_DECODE;
@@ -218,7 +217,14 @@ static int os_mgmt_client_echo_handler(struct mgmt_ctxt *ctxt)
 	/* Response isn't terminated */
 	LOG_HEXDUMP_INF(echo_rsp.r.value, echo_rsp.r.len, "Echo Response");
 
-	return MGMT_ERR_EOK;
+	if (echo_rsp.r.len == os_client_context.echo_cmd.d.len) {
+		if (memcmp(echo_rsp.r.value, os_client_context.echo_cmd.d.value, echo_rsp.r.len) ==
+		    0) {
+			return MGMT_ERR_EOK;
+		}
+	}
+
+	return MGMT_ERR_EPERUSER;
 }
 #endif
 
