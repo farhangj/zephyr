@@ -304,7 +304,7 @@ zephyr_smp_rx_req(struct zephyr_smp_transport *zst, struct net_buf *nb)
 
 int
 zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
-		      const void *cbor_data)
+		      const void *cbor_data, const void* user_data, uint16_t ud_len)
 {
 	struct cbor_nb_writer writer;
 	struct smp_streamer streamer;
@@ -344,6 +344,13 @@ zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
 	rc = writer.enc.write(&writer.enc, cbor_data, ntohs(cmd_hdr->nh_len));
 	if (rc != 0) {
 		return rc;
+	}
+
+	if( NULL != user_data )
+	{
+		struct sockaddr *ud;
+		ud = net_buf_user_data(cmd);
+		memcpy( ud, user_data, ud_len) ;
 	}
 
 	return streamer.tx_rsp_cb(&streamer, cmd, streamer.mgmt_stmr.cb_arg);

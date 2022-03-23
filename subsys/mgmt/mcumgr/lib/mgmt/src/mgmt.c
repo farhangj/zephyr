@@ -103,10 +103,15 @@ mgmt_find_group(uint16_t group_id, uint16_t command_id, bool client)
 	struct mgmt_group *group;
 
 	if (client) {
-		group = CONFIG_MCUMGR_CLIENT ? client_list_head : NULL;
+		#ifdef CONFIG_MCUMGR_CLIENT
+        	group = client_list_head;
+		#else
+	        group = NULL;
+		#endif
 	} else {
 		group = server_list_head;
 	}
+
 
 	/*
 	 * Find the group with the specified group id, if one exists
