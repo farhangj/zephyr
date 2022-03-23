@@ -20,7 +20,6 @@
 LOG_MODULE_REGISTER(os_mgmt_client, CONFIG_MGMT_CLIENT_OS_LOG_LEVEL);
 
 #include <init.h>
-#include <assert.h>
 #include <string.h>
 
 #include <mgmt/endian.h>
@@ -138,23 +137,17 @@ static void os_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg, mgmt_seq_cb cb)
 {
 	int r;
-	int mtu;
 	int msg_length;
 	struct mgmt_hdr cmd_hdr;
 	size_t cmd_len = 0;
 	uint8_t cmd[CONFIG_MCUMGR_BUF_SIZE];
-
-	mtu = transport->zst_get_mtu(NULL);
-	if (mtu <= 0) {
-		return MGMT_ERR_TRANSPORT;
-	}
 
 	if (msg == NULL) {
 		return MGMT_ERR_EINVAL;
 	}
 
 	msg_length = strlen(msg);
-	if (msg_length == 0 || msg_length > mtu) {
+	if (msg_length == 0 || msg_length > CONFIG_MCUMGR_BUF_SIZE) {
 		return MGMT_ERR_EINVAL;
 	}
 
@@ -173,19 +166,13 @@ int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg,
 		return MGMT_ERR_ENCODE;
 	}
 
-	if (cmd_len > mtu) {
-		/* Fragmentation not supported for echo */
-		LOG_ERR("Encoded echo message larger than MTU");
-		return MGMT_ERR_TRANSPORT;
-	}
-
 	cmd_hdr = BUILD_NETWORK_HEADER(MGMT_OP_READ, cmd_len, OS_MGMT_ID_ECHO);
 
 	if (cb != NULL) {
 		cb(cmd_hdr.nh_seq);
 	}
 
-	LOG_HEXDUMP_INF(msg, msg_length, "Echo cmd");
+	LOG_HEXDUMP_DBG(msg, msg_length, "Echo cmd");
 
 	r = os_send_cmd(transport, &cmd_hdr, cmd);
 
