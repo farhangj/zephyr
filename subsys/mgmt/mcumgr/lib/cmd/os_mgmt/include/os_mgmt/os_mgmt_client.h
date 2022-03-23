@@ -20,13 +20,12 @@ extern "C" {
  *
  * @param transport to send message on
  * @param msg string to have echoed back
- * @param callback Optional callback that provides the sequence number of the
+ * @param cb Optional callback that provides the sequence number of the
  * sent message.  Can be used to correlate send message with the response received
  * callback.
  * @return int 0 on success, MGMT_ERR_[...] code on failure
  */
-int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg,
-			void *(callback)(uint8_t sequence));
+int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg, mgmt_seq_cb cb);
 
 #ifdef __cplusplus
 }

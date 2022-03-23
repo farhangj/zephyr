@@ -135,8 +135,7 @@ static void os_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 	}
 }
 
-int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg,
-			void *(callback)(uint8_t sequence))
+int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg, mgmt_seq_cb cb)
 {
 	int r;
 	int mtu;
@@ -182,8 +181,8 @@ int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg,
 
 	cmd_hdr = BUILD_NETWORK_HEADER(MGMT_OP_READ, cmd_len, OS_MGMT_ID_ECHO);
 
-	if (callback != NULL) {
-		callback(cmd_hdr.nh_seq);
+	if (cb != NULL) {
+		cb(cmd_hdr.nh_seq);
 	}
 
 	LOG_HEXDUMP_INF(msg, msg_length, "Echo cmd");
@@ -204,9 +203,9 @@ static int os_mgmt_client_echo_handler(struct mgmt_ctxt *ctxt)
 		return MGMT_ERR_EBADSTATE;
 	}
 
-	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_echo_rsp, &echo_rsp,
+	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_echo_rsp, &echo_rsp,
 			      true) != 0) {
-		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_error_rsp,
+		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_error_rsp,
 				      &error_rsp, false) != 0) {
 			return MGMT_ERR_DECODE;
 		} else {
@@ -215,7 +214,7 @@ static int os_mgmt_client_echo_handler(struct mgmt_ctxt *ctxt)
 	}
 
 	/* Response isn't terminated */
-	LOG_HEXDUMP_INF(echo_rsp.r.value, echo_rsp.r.len, "Echo Response");
+	LOG_HEXDUMP_DBG(echo_rsp.r.value, echo_rsp.r.len, "Echo Response");
 
 	if (echo_rsp.r.len == os_client_context.echo_cmd.d.len) {
 		if (memcmp(echo_rsp.r.value, os_client_context.echo_cmd.d.value, echo_rsp.r.len) ==

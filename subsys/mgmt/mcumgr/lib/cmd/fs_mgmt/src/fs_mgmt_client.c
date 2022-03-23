@@ -110,7 +110,7 @@ static int fs_send_cmd(struct zephyr_smp_transport *transport, struct mgmt_hdr *
 
 	fs_ctx.sequence = hdr->nh_seq;
 	r = zephyr_smp_tx_cmd(transport, hdr, cbor_data);
-	
+
 	return r;
 }
 
@@ -124,9 +124,9 @@ static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 		return r;
 	}
 
-	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_file_download_rsp,
+	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_file_download_rsp,
 			      &file_download_rsp, true) != 0) {
-		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_error_rsp,
+		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_error_rsp,
 				      &error_rsp, false) != 0) {
 			r = MGMT_ERR_DECODE;
 		} else {
@@ -183,9 +183,9 @@ static int upload_rsp_handler(struct mgmt_ctxt *ctxt)
 		return r;
 	}
 
-	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_file_upload_rsp,
+	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_file_upload_rsp,
 			      &file_upload_rsp, true) != 0) {
-		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_decoder_func)cbor_decode_error_rsp,
+		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_error_rsp,
 				      &error_rsp, false) != 0) {
 			r = MGMT_ERR_DECODE;
 		} else {

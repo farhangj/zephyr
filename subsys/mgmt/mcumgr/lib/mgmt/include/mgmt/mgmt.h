@@ -483,6 +483,12 @@ int mgmt_register_evt_cb(struct mgmt_on_evt_cb_entry *entry);
  */
 void mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg);
 
+/** @typedef mgmt_seq_cb
+ *
+ * @param sequence	Number of message about to be sent by client.
+ */
+typedef void *(mgmt_seq_cb)(uint8_t sequence);
+
 /**
  * @brief Get sequence number for management client command
  *
