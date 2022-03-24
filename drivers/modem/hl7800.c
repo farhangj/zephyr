@@ -371,7 +371,7 @@ static const char TIME_STRING_FORMAT[] = "\"yy/MM/dd,hh:mm:ss?zz\"";
 	do {                                                                   \
 		ret = send_at_cmd(NULL, (c), MDM_CMD_SEND_TIMEOUT, 0, false);  \
 		if (ret < 0) {                                                 \
-			LOG_ERR("%s result:%d", (c), ret);                     \
+			LOG_DBG("%s result:%d", (c), ret);                     \
 		}                                                              \
 	} while (0)
 
