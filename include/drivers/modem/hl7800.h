@@ -377,7 +377,7 @@ int32_t mdm_hl7800_get_local_time(struct tm *tm, int32_t *offset);
  *
  * @param 0 if successful
  */
-int32_t mdm_hl7800_update_fw(char *file_path);
+int32_t mdm_hl7800_update_fw(const char *file_path);
 #endif
 
 /**
@@ -437,7 +437,7 @@ int32_t mdm_hl7800_polte_register(void);
  * @param password from polte.io register command callback
  * @return int32_t negative errno, 0 on success
  */
-int32_t mdm_hl7800_polte_enable(char *user, char *password);
+int32_t mdm_hl7800_polte_enable(const char *user, const char *password);
 
 /**
  * @brief Locate device using PoLTE.
