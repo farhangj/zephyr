@@ -1296,7 +1296,7 @@ error:
 	return ret;
 }
 
-int32_t mdm_hl7800_polte_enable(char *user, char *password)
+int32_t mdm_hl7800_polte_enable(const char *user, const char *password)
 {
 	int ret = -1;
 	char buf[sizeof(MDM_HL7800_SET_POLTE_USER_AND_PASSWORD_FMT_STR) +
@@ -5968,7 +5968,7 @@ static void hl7800_build_mac(struct hl7800_iface_ctx *ictx)
 }
 
 #ifdef CONFIG_MODEM_HL7800_FW_UPDATE
-int32_t mdm_hl7800_update_fw(char *file_path)
+int32_t mdm_hl7800_update_fw(const char *file_path)
 {
 	int ret = 0;
 	struct fs_dirent file_info;
