@@ -176,6 +176,7 @@ int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg,
 
 	r = os_send_cmd(transport, &cmd_hdr, cmd);
 
+	os_client_context.echo_cmd.d.value = NULL;
 	k_mutex_unlock(&os_client);
 	return r;
 }
@@ -186,7 +187,7 @@ static int os_mgmt_client_echo_handler(struct mgmt_ctxt *ctxt)
 	struct echo_rsp echo_rsp;
 	struct error_rsp error_rsp;
 
-	if (os_client_context.status != 0) {
+	if (os_client_context.status != 0 || os_client_context.echo_cmd.d.value == NULL) {
 		return MGMT_ERR_EBADSTATE;
 	}
 
