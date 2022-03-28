@@ -72,6 +72,22 @@ typedef int zephyr_smp_transport_ud_copy_fn(struct net_buf *dst,
  */
 typedef void zephyr_smp_transport_ud_free_fn(void *ud);
 
+
+/** @typedef zephyr_smp_transport_get_dst_info_fn
+ * @brief SMP copy destination addr (if required for this transport) for Zephyr.
+ *
+ * The supplied src net_buf should contain a user_data that cannot be copied
+ * using regular memcpy function (e.g., the BLE transport net_buf user_data
+ * stores the connection reference that has to be incremented when is going
+ * to be used by another buffer).
+ *
+ * @param dst                   Source buffer user_data pointer.
+ * @param src                   Destination buffer user_data pointer.
+ *
+ * @return                      0 on success, MGMT_ERR_[...] code on failure.
+ */
+typedef int zephyr_smp_transport_get_dest_info_fn(const void *dest_addr);
+
 /**
  * @brief Provides Zephyr-specific functionality for sending SMP responses.
  */
@@ -86,6 +102,7 @@ struct zephyr_smp_transport {
 	zephyr_smp_transport_get_mtu_fn *zst_get_mtu;
 	zephyr_smp_transport_ud_copy_fn *zst_ud_copy;
 	zephyr_smp_transport_ud_free_fn *zst_ud_free;
+	zephyr_smp_transport_get_dest_info_fn *zst_get_dest_info;
 };
 
 /**
@@ -103,7 +120,8 @@ void zephyr_smp_transport_init(struct zephyr_smp_transport *zst,
 			       zephyr_smp_transport_out_fn *output_func,
 			       zephyr_smp_transport_get_mtu_fn *get_mtu_func,
 			       zephyr_smp_transport_ud_copy_fn *ud_copy_func,
-			       zephyr_smp_transport_ud_free_fn *ud_free_func);
+			       zephyr_smp_transport_ud_free_fn *ud_free_func,
+				   zephyr_smp_transport_get_dest_info_fn *get_dest_info_func);
 
 /**
  * @brief Enqueues an incoming SMP request packet for processing.
@@ -125,7 +143,7 @@ void zephyr_smp_rx_req(struct zephyr_smp_transport *zst, struct net_buf *nb);
  * @param cbor_data             The CBOR data of the request
  */
 int zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
-		      const void *cbor_data, const void* user_data, uint16_t ud_len);
+		      const void *cbor_data);
 
 #ifdef __cplusplus
 }

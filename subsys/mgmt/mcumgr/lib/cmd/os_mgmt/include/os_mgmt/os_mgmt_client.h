@@ -25,7 +25,8 @@ extern "C" {
  * callback.
  * @return int 0 on success, MGMT_ERR_[...] code on failure
  */
-int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg, mgmt_seq_cb cb);
+int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg, 
+						mgmt_seq_cb cb)
 
 #ifdef __cplusplus
 }

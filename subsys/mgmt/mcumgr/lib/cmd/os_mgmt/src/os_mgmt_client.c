@@ -96,7 +96,7 @@ static struct {
 } os_client_context;
 
 static int os_send_cmd(struct zephyr_smp_transport *transport, struct mgmt_hdr *hdr,
-		       const void *cbor_data)
+		       const void *cbor_data, const void* to_addr, uint16_t to_addr_len)
 {
 	int r;
 
@@ -134,7 +134,8 @@ static void os_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 	}
 }
 
-int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg, mgmt_seq_cb cb)
+int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg, 
+						mgmt_seq_cb cb)
 {
 	int r;
 	int msg_length;
@@ -174,7 +175,7 @@ int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg,
 
 	LOG_HEXDUMP_DBG(msg, msg_length, "Echo cmd");
 
-	r = os_send_cmd(transport, &cmd_hdr, cmd);
+	r = os_send_cmd(transport, &cmd_hdr, cmd, to_addr, to_addr_len);
 
 	os_client_context.echo_cmd.d.value = NULL;
 	k_mutex_unlock(&os_client);

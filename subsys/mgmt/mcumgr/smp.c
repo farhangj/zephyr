@@ -286,13 +286,15 @@ zephyr_smp_transport_init(struct zephyr_smp_transport *zst,
 			  zephyr_smp_transport_out_fn *output_func,
 			  zephyr_smp_transport_get_mtu_fn *get_mtu_func,
 			  zephyr_smp_transport_ud_copy_fn *ud_copy_func,
-			  zephyr_smp_transport_ud_free_fn *ud_free_func)
+			  zephyr_smp_transport_ud_free_fn *ud_free_func,
+			  zephyr_smp_transport_get_dest_info_fn *get_dest_info_func)
 {
 	*zst = (struct zephyr_smp_transport) {
 		.zst_output = output_func,
 		.zst_get_mtu = get_mtu_func,
 		.zst_ud_copy = ud_copy_func,
 		.zst_ud_free = ud_free_func,
+		.zst_get_dest_info = get_dest_info_func,
 	};
 
 	k_work_init(&zst->zst_work, zephyr_smp_handle_reqs);
@@ -308,7 +310,7 @@ zephyr_smp_rx_req(struct zephyr_smp_transport *zst, struct net_buf *nb)
 
 int
 zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
-		      const void *cbor_data, const void* user_data, uint16_t ud_len)
+		      const void *cbor_data)
 {
 	struct cbor_nb_writer writer;
 	struct smp_streamer streamer;
@@ -356,11 +358,10 @@ zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
 			break;
 		}
 
-	    if( NULL != user_data )
+	    if( NULL != zst->zst_get_dest_info )
 	    {
-	    	struct sockaddr *ud;
-	    	ud = net_buf_user_data(cmd);
-	    	memcpy( ud, user_data, ud_len) ;
+	    	/* Copy dest address into nb */
+			zst->zst_get_dest_info( cmd );
 	    }
 		rc = streamer.tx_cb(&streamer, cmd, streamer.mgmt_stmr.cb_arg);
 		mgmt_generate_cmd_sent_event(cmd_hdr, rc);
