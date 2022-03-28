@@ -124,8 +124,12 @@ static void os_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 
 	if (event == MGMT_EVT_OP_CLIENT_DONE) {
 		if (hdr->nh_seq != os_client_context.sequence) {
-			LOG_ERR("Unexpected sequence");
+			LOG_ERR("Unexpected sequence,%u!=%u",os_client_context.sequence,hdr->nh_seq);
 		}
+        else
+        {
+            LOG_INF("MGMT_EVT_OP_CLIENT_DONE, sequence good,%u!=%u",os_client_context.sequence,hdr->nh_seq);
+        }
 
 		os_client_context.status =
 			arg ? ((struct mgmt_evt_op_cmd_done_arg *)arg)->err : MGMT_ERR_EUNKNOWN;
@@ -134,7 +138,8 @@ static void os_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 	}
 }
 
-int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg, mgmt_seq_cb cb)
+int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg, 
+						mgmt_seq_cb cb)
 {
 	int r;
 	int msg_length;
