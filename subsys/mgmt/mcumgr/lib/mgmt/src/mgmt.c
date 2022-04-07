@@ -387,39 +387,39 @@ mgmt_get_string_err(int err)
 {
 	switch (err) {
 	case MGMT_ERR_EOK:
-		return "0-OK";
+		return "OK";
 	case MGMT_ERR_EUNKNOWN:
-		return "1-Unknown";
+		return "Unknown";
 	case MGMT_ERR_ENOMEM:
-		return "2-No Memory";
+		return "No Memory";
 	case MGMT_ERR_EINVAL:
-		return "3-Invalid Argument";
+		return "Invalid Argument";
 	case MGMT_ERR_ETIMEOUT:
-		return "4-Timeout";
+		return "Timeout";
 	case MGMT_ERR_ENOENT:
-		return "5-No Entry";
+		return "No Entry";
 	case MGMT_ERR_EBADSTATE:
-		return "6-Current state disallows command";
+		return "Current state disallows command";
 	case MGMT_ERR_EMSGSIZE:
-		return "7-Message too large for transport";
+		return "Message too large for transport";
 	case MGMT_ERR_ENOTSUP:
-		return "8-Command not supported";
+		return "Command not supported";
 	case MGMT_ERR_ECORRUPT:
-		return "9-Corrupt ";
+		return "Corrupt ";
 	case MGMT_ERR_NO_CLIENT:
-		return "10-Client handler not found";
+		return "Client handler not found";
 	case MGMT_ERR_DECODE:
-		return "11-Decode";
+		return "Decode";
 	case MGMT_ERR_ENCODE:
-		return "12-Encode";
+		return "Encode";
 	case MGMT_ERR_OFFSET:
-		return "13-Offset";
+		return "Offset";
 	case MGMT_ERR_TRANSPORT:
-		return "14-Transport";
+		return "Transport";
 	case MGMT_ERR_BUSY:
-		return "15-Busy";
+		return "Busy";
 	case MGMT_ERR_WRITE:
-		return "16-Write Transport";
+		return "Write Transport";
 	default:
 		return "?";
 	}
