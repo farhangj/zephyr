@@ -333,8 +333,6 @@ zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
 		cmd = NULL;
 		cmd = mgmt_streamer_alloc_rsp(&streamer.mgmt_stmr, cmd);
 		if (cmd == NULL) {
-			while (1)
-				;
 			rc = MGMT_ERR_ENOMEM;
 			break;
 		}
