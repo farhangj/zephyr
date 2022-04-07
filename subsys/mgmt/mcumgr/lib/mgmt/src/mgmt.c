@@ -420,6 +420,10 @@ mgmt_get_string_err(int err)
 		return "Busy";
 	case MGMT_ERR_WRITE:
 		return "Write Transport";
+	case MGMT_ERR_OPEN:
+		return "Unable to open transport";
+	case MGMT_ERR_CLOSE:
+		return "Unable to close transport";
 	default:
 		return "?";
 	}

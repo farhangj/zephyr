@@ -173,36 +173,60 @@ zephyr_smp_tx(struct smp_streamer *ns, void *rsp, void *arg)
 	struct net_buf *nb;
 	uint16_t mtu;
 	int rc;
+	int mgmt_err;
 	int i;
 
 	zst = arg;
 	nb = rsp;
 
-	mtu = zst->zst_get_mtu(rsp);
-	if (mtu == 0U) {
-		/* The transport cannot support a transmission right now. */
-		return MGMT_ERR_TRANSPORT;
-	}
-
-	if (nb->len > mtu) {
-		/* The size of the message is too large for the transport. */
-		return MGMT_ERR_EMSGSIZE;
-	}
-
-	i = 0;
-	while (nb != NULL) {
-		frag = zephyr_smp_split_frag(&nb, zst, mtu);
-		if (frag == NULL) {
-			return MGMT_ERR_ENOMEM;
+	do {
+		mtu = zst->zst_get_mtu(rsp);
+		if (mtu == 0U) {
+			/* The transport cannot support a transmission right now. */
+			mgmt_err = MGMT_ERR_TRANSPORT;
+			break;
 		}
 
-		rc = zst->zst_output(zst, frag);
-		if (rc != 0) {
-			return MGMT_ERR_EUNKNOWN;
+		if (nb->len > mtu) {
+			/* The size of the message is too large for the transport. */
+			mgmt_err = MGMT_ERR_EMSGSIZE;
+			break;
 		}
-	}
 
-	return 0;
+		if (zst->zst_open != NULL) {
+			rc = zst->zst_open();
+			if (rc != 0) {
+				mgmt_err = MGMT_ERR_OPEN;
+				break;
+			}
+		}
+
+		i = 0;
+		mgmt_err = 0;
+		while (nb != NULL) {
+			frag = zephyr_smp_split_frag(&nb, zst, mtu);
+			if (frag == NULL) {
+				mgmt_err = MGMT_ERR_ENOMEM;
+				break;
+			}
+
+			rc = zst->zst_output(zst, frag);
+			if (rc != 0) {
+				mgmt_err = MGMT_ERR_EUNKNOWN;
+				break;
+			}
+		}
+
+		if (zst->zst_close != NULL) {
+			rc = zst->zst_close();
+			if (rc != 0) {
+				mgmt_err = MGMT_ERR_CLOSE;
+				break;
+			}
+		}
+	} while (0);
+
+	return mgmt_err;
 }
 
 static int
@@ -293,6 +317,8 @@ zephyr_smp_transport_init(struct zephyr_smp_transport *zst,
 		.zst_get_mtu = get_mtu_func,
 		.zst_ud_copy = ud_copy_func,
 		.zst_ud_free = ud_free_func,
+		.zst_open = NULL,
+		.zst_close = NULL
 	};
 
 	k_work_init(&zst->zst_work, zephyr_smp_handle_reqs);

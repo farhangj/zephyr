@@ -62,6 +62,8 @@ extern "C" {
 #define MGMT_ERR_TRANSPORT	14
 #define MGMT_ERR_BUSY		15
 #define MGMT_ERR_WRITE      16		/* Can't write CBOR to transport */
+#define MGMT_ERR_OPEN       17
+#define MGMT_ERR_CLOSE      18
 #define MGMT_ERR_EPERUSER	256
 
 #define MGMT_HDR_SIZE		8

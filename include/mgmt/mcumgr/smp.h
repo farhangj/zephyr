@@ -72,6 +72,26 @@ typedef int zephyr_smp_transport_ud_copy_fn(struct net_buf *dst,
  */
 typedef void zephyr_smp_transport_ud_free_fn(void *ud);
 
+/** @typedef zephyr_smp_transport_open_fn
+ * @brief SMP open transport for communication
+ *
+ * Some transports require actions before sending data that are specific
+ * to the users application.
+ *
+ * @return                      0 on success, MGMT_ERR_[...] code on failure.
+ */
+typedef int zephyr_smp_transport_open_fn(void);
+
+/** @typedef zephyr_smp_transport_close_fn
+ * @brief SMP close transport after communication is done
+ *
+ * Some transports require actions after sending data that are specific
+ * to the users application. For example, shutting down the UART.
+ *
+ * @return                      0 on success, MGMT_ERR_[...] code on failure.
+ */
+typedef int zephyr_smp_transport_close_fn(void);
+
 /**
  * @brief Provides Zephyr-specific functionality for sending SMP responses.
  */
@@ -86,6 +106,8 @@ struct zephyr_smp_transport {
 	zephyr_smp_transport_get_mtu_fn *zst_get_mtu;
 	zephyr_smp_transport_ud_copy_fn *zst_ud_copy;
 	zephyr_smp_transport_ud_free_fn *zst_ud_free;
+	zephyr_smp_transport_open_fn *zst_open;
+	zephyr_smp_transport_close_fn *zst_close;
 };
 
 /**
