@@ -3428,7 +3428,7 @@ int k_work_schedule_for_queue(struct k_work_q *queue,
  * delay.
  *
  * This is a thin wrapper around k_work_schedule_for_queue(), with all the API
- * characteristcs of that function.
+ * characteristics of that function.
  *
  * @param dwork pointer to the delayable work item.
  *
@@ -3483,7 +3483,7 @@ int k_work_reschedule_for_queue(struct k_work_q *queue,
  * delay.
  *
  * This is a thin wrapper around k_work_reschedule_for_queue(), with all the
- * API characteristcs of that function.
+ * API characteristics of that function.
  *
  * @param dwork pointer to the delayable work item.
  *
