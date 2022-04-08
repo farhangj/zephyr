@@ -117,35 +117,28 @@ static int fs_send_cmd(struct zephyr_smp_transport *transport, struct mgmt_hdr *
 static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 {
 	int r = MGMT_ERR_EBADSTATE;
-	struct file_download_rsp file_download_rsp;
-	struct error_rsp error_rsp;
+	struct file_download_rsp rsp;
 
 	if (fs_ctx.status != 0) {
 		return r;
 	}
 
-	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_file_download_rsp,
-			      &file_download_rsp, true) != 0) {
-		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_error_rsp,
-				      &error_rsp, false) != 0) {
-			r = MGMT_ERR_DECODE;
-		} else {
-			r = error_rsp.rc;
-		}
+	if (zcbor_mgmt_decode_client(ctxt, cbor_decode_file_download_rsp, &rsp) != 0) {
+		r = zcbor_mgmt_decode_err(ctxt);
 	} else {
-		LOG_DBG("rc: %d off: %u", file_download_rsp.rc, file_download_rsp.offset);
+		LOG_DBG("rc: %d off: %u", rsp.rc, rsp.offset);
 
-		if (file_download_rsp.rc != 0) {
-			return file_download_rsp.rc;
+		if (rsp.rc != 0) {
+			return rsp.rc;
 		}
 
 		/* First chunk must contain length */
-		if (file_download_rsp.offset == 0) {
-			if (file_download_rsp.len_present) {
-				if (file_download_rsp.len.len > fs_ctx.size) {
+		if (rsp.offset == 0) {
+			if (rsp.len_present) {
+				if (rsp.len.len > fs_ctx.size) {
 					return MGMT_ERR_ENOMEM;
 				} else {
-					fs_ctx.size = file_download_rsp.len.len;
+					fs_ctx.size = rsp.len.len;
 					LOG_DBG("size: %u", fs_ctx.size);
 				}
 			} else {
@@ -153,14 +146,14 @@ static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 			}
 		}
 
-		fs_ctx.chunk_size = file_download_rsp.data.len;
-		if (((file_download_rsp.offset + fs_ctx.chunk_size) <= fs_ctx.size) &&
-		    (fs_ctx.offset == file_download_rsp.offset)) {
+		fs_ctx.chunk_size = rsp.data.len;
+		if (((rsp.offset + fs_ctx.chunk_size) <= fs_ctx.size) &&
+		    (fs_ctx.offset == rsp.offset)) {
 			if (fs_ctx.local_name != NULL) {
 				fs_mgmt_impl_write(fs_ctx.local_name, fs_ctx.offset,
-						   file_download_rsp.data.value, fs_ctx.chunk_size);
+						   rsp.data.value, fs_ctx.chunk_size);
 			} else {
-				memcpy(fs_ctx.data + fs_ctx.offset, file_download_rsp.data.value,
+				memcpy(fs_ctx.data + fs_ctx.offset, rsp.data.value,
 				       fs_ctx.chunk_size);
 			}
 			fs_ctx.offset += fs_ctx.chunk_size;
@@ -176,30 +169,22 @@ static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 static int upload_rsp_handler(struct mgmt_ctxt *ctxt)
 {
 	int r = MGMT_ERR_EBADSTATE;
-	struct file_upload_rsp file_upload_rsp;
-	struct error_rsp error_rsp;
+	struct file_upload_rsp rsp;
 
 	if (fs_ctx.status != 0) {
 		return r;
 	}
 
-	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_file_upload_rsp,
-			      &file_upload_rsp, true) != 0) {
-		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_error_rsp,
-				      &error_rsp, false) != 0) {
-			r = MGMT_ERR_DECODE;
-		} else {
-			r = error_rsp.rc;
-		}
+	if (zcbor_mgmt_decode_client(ctxt, cbor_decode_file_upload_rsp, &rsp) != 0) {
+		r = zcbor_mgmt_decode_err(ctxt);
 	} else {
-		LOG_DBG("rc: %d off: %u", file_upload_rsp.rc, file_upload_rsp.offset);
+		LOG_DBG("rc: %d off: %u", rsp.rc, rsp.offset);
 
-		if ((file_upload_rsp.rc == 0) && (file_upload_rsp.offset <= fs_ctx.size) &&
-		    (file_upload_rsp.offset == fs_ctx.offset + fs_ctx.chunk_size)) {
+		if ((rsp.rc == 0) && (rsp.offset <= fs_ctx.size) &&
+		    (rsp.offset == fs_ctx.offset + fs_ctx.chunk_size)) {
 			/* Prepare for next chunk */
-			fs_ctx.offset = file_upload_rsp.offset;
-			fs_ctx.chunk_size =
-				MIN(fs_ctx.chunk_size, (fs_ctx.size - file_upload_rsp.offset));
+			fs_ctx.offset = rsp.offset;
+			fs_ctx.chunk_size = MIN(fs_ctx.chunk_size, (fs_ctx.size - rsp.offset));
 			r = MGMT_ERR_EOK;
 		} else {
 			r = MGMT_ERR_OFFSET;

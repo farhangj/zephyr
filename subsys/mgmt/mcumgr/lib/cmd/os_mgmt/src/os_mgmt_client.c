@@ -184,29 +184,21 @@ int os_mgmt_client_echo(struct zephyr_smp_transport *transport, const char *msg,
 #if CONFIG_OS_MGMT_CLIENT_ECHO
 static int os_mgmt_client_echo_handler(struct mgmt_ctxt *ctxt)
 {
-	struct echo_rsp echo_rsp;
-	struct error_rsp error_rsp;
+	struct echo_rsp rsp;
 
 	if (os_client_context.status != 0 || os_client_context.echo_cmd.d.value == NULL) {
 		return MGMT_ERR_EBADSTATE;
 	}
 
-	if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_echo_rsp, &echo_rsp,
-			      true) != 0) {
-		if (zcbor_mgmt_decode(ctxt, (zcbor_mgmt_func)cbor_decode_error_rsp,
-				      &error_rsp, false) != 0) {
-			return MGMT_ERR_DECODE;
-		} else {
-			return error_rsp.rc;
-		}
+	if (zcbor_mgmt_decode_client(ctxt, cbor_decode_echo_rsp, &rsp) != 0) {
+		return zcbor_mgmt_decode_err(ctxt);
 	}
 
 	/* Response isn't terminated */
-	LOG_HEXDUMP_DBG(echo_rsp.r.value, echo_rsp.r.len, "Echo Response");
+	LOG_HEXDUMP_DBG(rsp.r.value, rsp.r.len, "Echo Response");
 
-	if (echo_rsp.r.len == os_client_context.echo_cmd.d.len) {
-		if (memcmp(echo_rsp.r.value, os_client_context.echo_cmd.d.value, echo_rsp.r.len) ==
-		    0) {
+	if (rsp.r.len == os_client_context.echo_cmd.d.len) {
+		if (memcmp(rsp.r.value, os_client_context.echo_cmd.d.value, rsp.r.len) == 0) {
 			return MGMT_ERR_EOK;
 		}
 	}
