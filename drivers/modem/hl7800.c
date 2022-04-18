@@ -5976,6 +5976,7 @@ int32_t mdm_hl7800_update_fw(const char *file_path)
 
 	/* HL7800 will stay locked for the duration of the FW update */
 	hl7800_lock();
+	wakeup_hl7800();
 
 	/* get file info */
 	ret = fs_stat(file_path, &file_info);
@@ -6017,6 +6018,7 @@ int32_t mdm_hl7800_update_fw(const char *file_path)
 	goto done;
 
 err:
+	allow_sleep(true);
 	hl7800_unlock();
 done:
 	return ret;
