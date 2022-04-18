@@ -424,6 +424,8 @@ mgmt_get_string_err(int err)
 		return "Unable to open transport";
 	case MGMT_ERR_CLOSE:
 		return "Unable to close transport";
+	case MGMT_ERR_LENGTH_MISSING:
+		return "Length missing from first chunk of file operation";
 	default:
 		return "?";
 	}

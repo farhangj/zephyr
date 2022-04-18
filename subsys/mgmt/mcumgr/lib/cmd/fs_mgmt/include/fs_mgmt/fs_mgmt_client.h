@@ -22,10 +22,11 @@ extern "C" {
  * @param name of file to read from mgmt server
  * @param data location to write data
  * @param size max size of data (input), actual size of data (output)
+ * @param offset offset into file to start, offset into file when done
  * @return int 0 on success, MGMT_ERR_[...] code on failure
  */
 int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *name,
-			  void *data, size_t *size);
+			  void *data, size_t *size, size_t *offset);
 
 /**
  * @brief Read a remote file into a local file
@@ -34,10 +35,11 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
  * @param remote_name of file to read from mgmt server
  * @param local_name of file to write
  * @param size max size of data (input), actual size of data (output)
+ * @param offset offset into file to start, offset into file when done
  * @return int 0 on success, MGMT_ERR_[...] code on failure
  */
 int fs_mgmt_client_download_file(struct zephyr_smp_transport *transport, const char *remote_name,
-				 const char *local_name, size_t *size);
+				 const char *local_name, size_t *size, size_t *offset);
 
 /**
  * @brief Write a file
@@ -46,21 +48,23 @@ int fs_mgmt_client_download_file(struct zephyr_smp_transport *transport, const c
  * @param name of file to write to mgmt server
  * @param data to write
  * @param size of data
+ * @param offset offset into file to start, offset into file when done
  * @return int 0 on success, MGMT_ERR_[...] code on failure
  */
 int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *name,
-			  const void *data, size_t size);
+			  const void *data, size_t size, size_t *offset);
 
 /**
- * @brief Write a file
+ * @brief Write a file from the file system.
  *
  * @param transport to send message on
  * @param name of file to write to mgmt server
  * @param local_name of file to read
+ * @param offset offset into file to start, offset into file when done
  * @return int 0 on success, MGMT_ERR_[...] code on failure
  */
 int fs_mgmt_client_upload_file(struct zephyr_smp_transport *transport, const char *name,
-			       const char *local_name);
+			       const char *local_name, size_t *offset);
 
 #ifdef __cplusplus
 }

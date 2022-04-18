@@ -40,7 +40,10 @@ static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 /**************************************************************************************************/
 #define MCUMGR_OVERHEAD (CBOR_AND_OTHER_HDR + 32)
 
-#define CONFIG_FS_CMD_TIMEOUT_SECONDS 1 /* should this be based on/read from transport? */
+/* should this be based on/read from transport? */
+/* no, server side could be busy */
+/* queryable parameter */
+#define CONFIG_FS_CMD_TIMEOUT_MS 1000
 
 #define BUILD_NETWORK_HEADER(op, len, id) SET_NETWORK_HEADER(op, len, MGMT_GROUP_ID_FS, id)
 
@@ -72,6 +75,7 @@ static struct {
 	struct mgmt_hdr cmd_hdr;
 	uint8_t cmd[CONFIG_MCUMGR_BUF_SIZE];
 	int sequence;
+	bool first_chunk;
 	volatile int status;
 	volatile size_t offset;
 	volatile size_t size;
@@ -133,7 +137,8 @@ static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 		}
 
 		/* First chunk must contain length */
-		if (rsp.offset == 0) {
+		if (fs_ctx.first_chunk) {
+			fs_ctx.first_chunk = false;
 			if (rsp.len_present) {
 				if (rsp.len.len > fs_ctx.size) {
 					return MGMT_ERR_ENOMEM;
@@ -142,24 +147,26 @@ static int download_rsp_handler(struct mgmt_ctxt *ctxt)
 					LOG_DBG("size: %u", fs_ctx.size);
 				}
 			} else {
-				return MGMT_ERR_OFFSET;
+				return MGMT_ERR_LENGTH_MISSING;
 			}
 		}
 
+		/* Save offset so that it can be used in a retry. */
 		fs_ctx.chunk_size = rsp.data.len;
-		if (((rsp.offset + fs_ctx.chunk_size) <= fs_ctx.size) &&
-		    (fs_ctx.offset == rsp.offset)) {
-			if (fs_ctx.local_name != NULL) {
-				fs_mgmt_impl_write(fs_ctx.local_name, fs_ctx.offset,
-						   rsp.data.value, fs_ctx.chunk_size);
-			} else {
+		fs_ctx.offset = rsp.offset;
+
+		if (fs_ctx.local_name != NULL) {
+			r = fs_mgmt_impl_write(fs_ctx.local_name, fs_ctx.offset, rsp.data.value,
+					       fs_ctx.chunk_size);
+
+		} else {
+			if ((fs_ctx.offset + fs_ctx.chunk_size) <= fs_ctx.size) {
 				memcpy(fs_ctx.data + fs_ctx.offset, rsp.data.value,
 				       fs_ctx.chunk_size);
+				r = MGMT_ERR_EOK;
+			} else {
+				r = MGMT_ERR_OFFSET;
 			}
-			fs_ctx.offset += fs_ctx.chunk_size;
-			r = MGMT_ERR_EOK;
-		} else {
-			r = MGMT_ERR_OFFSET;
 		}
 	}
 
@@ -238,7 +245,7 @@ static int download_chunk(struct zephyr_smp_transport *transport)
 
 static int wait_for_response(void)
 {
-	return k_sem_take(&fs_ctx.busy, K_SECONDS(CONFIG_FS_CMD_TIMEOUT_SECONDS));
+	return k_sem_take(&fs_ctx.busy, K_MSEC(CONFIG_FS_CMD_TIMEOUT_MS));
 }
 
 /* Request file chunks in caller context.
@@ -269,13 +276,13 @@ static int upload_chunk(struct zephyr_smp_transport *transport)
 {
 	int r;
 	size_t cmd_len = 0;
-	void * buf = NULL;
+	void *buf = NULL;
 	size_t buf_size;
 
 	/* clang-format off */
 	struct file_upload_cmd file_upload_cmd = {
 		.offset = fs_ctx.offset,
-		.len_present = true,
+		.len_present = fs_ctx.first_chunk,
 		.len.len = fs_ctx.size,
 		.name.value = fs_ctx.name,
 		.name.len = strlen(fs_ctx.name)
@@ -314,6 +321,7 @@ static int upload_chunk(struct zephyr_smp_transport *transport)
 		fs_ctx.cmd_hdr = BUILD_NETWORK_HEADER(MGMT_OP_WRITE, cmd_len, FS_MGMT_ID_FILE);
 		r = fs_send_cmd(transport, &fs_ctx.cmd_hdr, fs_ctx.cmd);
 
+		fs_ctx.first_chunk = false;
 	} while (0);
 
 	k_free(buf);
@@ -347,12 +355,13 @@ static int upload(struct zephyr_smp_transport *transport)
 /**************************************************************************************************/
 /* Global Function Definitions                                                                    */
 /**************************************************************************************************/
-int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *name,
-			  void *data, size_t *size)
+int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *name, void *data,
+			    size_t *size, size_t *offset)
 {
 	int r;
 
-	if (name == NULL || data == NULL || size == NULL || *size == 0) {
+	if (name == NULL || data == NULL || size == NULL || *size == 0 || offset == NULL ||
+	    *offset > *size) {
 		return MGMT_ERR_EINVAL;
 	}
 
@@ -361,8 +370,9 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
 		return MGMT_ERR_BUSY;
 	}
 
+	fs_ctx.first_chunk = true;
 	fs_ctx.status = 0;
-	fs_ctx.offset = 0;
+	fs_ctx.offset = *offset;
 	fs_ctx.size = *size; /* max size */
 	fs_ctx.name = name;
 	fs_ctx.data = (uint8_t *)data;
@@ -371,16 +381,18 @@ int fs_mgmt_client_download(struct zephyr_smp_transport *transport, const char *
 	r = download(transport);
 
 	*size = fs_ctx.size;
+	*offset = fs_ctx.offset;
 	k_mutex_unlock(&fs_client);
 	return r;
 }
 
 int fs_mgmt_client_download_file(struct zephyr_smp_transport *transport, const char *remote_name,
-				 const char *local_name, size_t *size)
+				 const char *local_name, size_t *size, size_t *offset)
 {
 	int r;
 
-	if (remote_name == NULL || local_name == NULL || size == NULL || *size == 0) {
+	if (remote_name == NULL || local_name == NULL || size == NULL || offset == NULL ||
+	    *offset > *size) {
 		return MGMT_ERR_EINVAL;
 	}
 
@@ -389,8 +401,9 @@ int fs_mgmt_client_download_file(struct zephyr_smp_transport *transport, const c
 		return MGMT_ERR_BUSY;
 	}
 
+	fs_ctx.first_chunk = true;
 	fs_ctx.status = 0;
-	fs_ctx.offset = 0;
+	fs_ctx.offset = *offset;
 	fs_ctx.size = *size;
 	fs_ctx.name = remote_name;
 	fs_ctx.data = 0;
@@ -399,12 +412,13 @@ int fs_mgmt_client_download_file(struct zephyr_smp_transport *transport, const c
 	r = download(transport);
 
 	*size = fs_ctx.size;
+	*offset = fs_ctx.offset;
 	k_mutex_unlock(&fs_client);
 	return r;
 }
 
 int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *name,
-			  const void *data, size_t size)
+			  const void *data, size_t size, size_t *offset)
 {
 	int r;
 	int adjusted_mtu;
@@ -418,7 +432,7 @@ int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *na
 	adjusted_mtu = 300;
 #endif
 
-	if (name == NULL || data == NULL || size == 0) {
+	if (name == NULL || data == NULL || size == 0 || offset == NULL || *offset > size) {
 		return MGMT_ERR_EINVAL;
 	}
 
@@ -427,8 +441,9 @@ int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *na
 		return MGMT_ERR_BUSY;
 	}
 
+	fs_ctx.first_chunk = true;
 	fs_ctx.status = 0;
-	fs_ctx.offset = 0;
+	fs_ctx.offset = *offset;
 	fs_ctx.size = size;
 	fs_ctx.chunk_size = MIN(size, adjusted_mtu);
 	fs_ctx.name = name;
@@ -437,12 +452,13 @@ int fs_mgmt_client_upload(struct zephyr_smp_transport *transport, const char *na
 
 	r = upload(transport);
 
+	*offset = fs_ctx.offset;
 	k_mutex_unlock(&fs_client);
 	return r;
 }
 
 int fs_mgmt_client_upload_file(struct zephyr_smp_transport *transport, const char *name,
-			       const char *local_name)
+			       const char *local_name, size_t *offset)
 {
 	int r;
 	int adjusted_mtu;
@@ -471,8 +487,9 @@ int fs_mgmt_client_upload_file(struct zephyr_smp_transport *transport, const cha
 		return MGMT_ERR_BUSY;
 	}
 
+	fs_ctx.first_chunk = true;
 	fs_ctx.status = 0;
-	fs_ctx.offset = 0;
+	fs_ctx.offset = *offset;
 	fs_ctx.size = size;
 	fs_ctx.chunk_size = MIN(size, adjusted_mtu);
 	fs_ctx.name = name;
@@ -481,6 +498,7 @@ int fs_mgmt_client_upload_file(struct zephyr_smp_transport *transport, const cha
 
 	r = upload(transport);
 
+	*offset = fs_ctx.offset;
 	k_mutex_unlock(&fs_client);
 	return r;
 }
