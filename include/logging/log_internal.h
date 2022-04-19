@@ -21,7 +21,7 @@ extern "C" {
 
 /** @brief Indicate to the log core that one log message has been dropped.
  */
-void z_log_dropped(void);
+//void z_log_dropped(void);
 
 /** @brief Read and clear current drop indications counter.
  *
