@@ -187,14 +187,19 @@ static int upload_rsp_handler(struct mgmt_ctxt *ctxt)
 	} else {
 		LOG_DBG("rc: %d off: %u", rsp.rc, rsp.offset);
 
-		if ((rsp.rc == 0) && (rsp.offset <= fs_ctx.size) &&
-		    (rsp.offset == fs_ctx.offset + fs_ctx.chunk_size)) {
+		/* An invalid offset is the only response that contains more than the error code */
+		if ((rsp.rc == 0) || (rsp.rc == MGMT_ERR_EINVAL)) {
 			/* Prepare for next chunk */
-			fs_ctx.offset = rsp.offset;
-			fs_ctx.chunk_size = MIN(fs_ctx.chunk_size, (fs_ctx.size - rsp.offset));
-			r = MGMT_ERR_EOK;
+			if (rsp.offset <= fs_ctx.size) {
+				fs_ctx.offset = rsp.offset;
+				fs_ctx.chunk_size =
+					MIN(fs_ctx.chunk_size, (fs_ctx.size - fs_ctx.offset));
+				r = MGMT_ERR_EOK;
+			} else {
+				r = MGMT_ERR_OFFSET;
+			}
 		} else {
-			r = MGMT_ERR_OFFSET;
+			r = rsp.rc;
 		}
 	}
 
