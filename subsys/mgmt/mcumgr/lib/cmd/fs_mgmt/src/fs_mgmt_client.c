@@ -43,7 +43,7 @@ static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 /* should this be based on/read from transport? */
 /* no, server side could be busy */
 /* queryable parameter */
-#define CONFIG_FS_CMD_TIMEOUT_MS 1000
+#define CONFIG_FS_CMD_TIMEOUT_MS 2000
 
 #define BUILD_NETWORK_HEADER(op, len, id) SET_NETWORK_HEADER(op, len, MGMT_GROUP_ID_FS, id)
 
@@ -250,7 +250,12 @@ static int download_chunk(struct zephyr_smp_transport *transport)
 
 static int wait_for_response(void)
 {
-	return k_sem_take(&fs_ctx.busy, K_MSEC(CONFIG_FS_CMD_TIMEOUT_MS));
+	if (k_sem_take(&fs_ctx.busy, K_MSEC(CONFIG_FS_CMD_TIMEOUT_MS)) != 0) {
+		LOG_ERR("FS Response timeout");
+		fs_ctx.status = MGMT_ERR_ETIMEOUT;
+	}
+
+	return fs_ctx.status;
 }
 
 /* Request file chunks in caller context.
@@ -264,13 +269,8 @@ static int download(struct zephyr_smp_transport *transport)
 
 	do {
 		r = download_chunk(transport);
-
 		if (r == 0) {
-			if (wait_for_response() != 0) {
-				r = MGMT_ERR_ETIMEOUT;
-			} else {
-				r = fs_ctx.status;
-			}
+			r = wait_for_response();
 		}
 	} while ((r == 0) && (fs_ctx.offset < fs_ctx.size));
 
@@ -344,13 +344,8 @@ static int upload(struct zephyr_smp_transport *transport)
 
 	do {
 		r = upload_chunk(transport);
-
 		if (r == 0) {
-			if (wait_for_response() != 0) {
-				r = MGMT_ERR_ETIMEOUT;
-			} else {
-				r = fs_ctx.status;
-			}
+			r = wait_for_response();
 		}
 	} while ((r == 0) && (fs_ctx.offset < fs_ctx.size));
 
