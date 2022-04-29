@@ -111,6 +111,7 @@ enum mdm_hl7800_event {
 	HL7800_EVENT_POLTE_LOCATE_STATUS,
 	HL7800_EVENT_POLTE,
 	HL7800_EVENT_SITE_SURVEY,
+	HL7800_EVENT_EDRX_PARAMETERS,
 };
 
 enum mdm_hl7800_startup_state {
@@ -225,6 +226,27 @@ struct mdm_hl7800_polte_location_data {
 	char confidence_in_meters[MDM_HL7800_MAX_POLTE_LOCATION_STR_SIZE];
 };
 
+enum mdm_hl7800_edrx_type {
+	HL7800_EDRX_NOT_SUPPORTED = 0,
+	HL7800_EDRX_WB_S1 = 4,
+	HL7800_EDRX_NB_S1 = 5,
+};
+
+/* See AT Commands Interface Guide for detailed information
+ * When access_technology_type == 0, other elements are invalid
+ */
+struct mdm_hl7800_edrx_parameters {
+	uint8_t access_technology_type;
+	bool nibbles_valid;
+	struct {
+		/* bits 4 to 1 of octet 3 of the eDRX parameter */
+		uint8_t requested;
+		uint8_t network_provided;
+		/* bits 8 to 5 of octet 3 of the eDRX parameter */
+		uint8_t paging_time_window;
+	} nibbles;
+};
+
 /**
  * event - The type of event
  * event_data - Pointer to event specific data structure
@@ -246,6 +268,7 @@ struct mdm_hl7800_polte_location_data {
  * HL7800_EVENT_POLTE mdm_hl7800_polte_location_data
  * HL7800_EVENT_POLTE_LOCATE_STATUS int
  * HL7800_EVENT_SITE_SURVEY mdm_hl7800_site_survey
+ * HL7800_EVENT_EDRX_PARAMETERS mdm_hl7800_edrx_parameters
  */
 typedef void (*mdm_hl7800_event_callback_t)(enum mdm_hl7800_event event,
 					    void *event_data);

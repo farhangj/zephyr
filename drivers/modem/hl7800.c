@@ -547,6 +547,7 @@ struct hl7800_iface_ctx {
 	uint8_t operator_index;
 	enum mdm_hl7800_functionality functionality;
 	char mdm_pdp_addr_fam[MDM_ADDR_FAM_MAX_LEN];
+	struct mdm_hl7800_edrx_parameters edrx_parameters;
 
 	/* modem state */
 	bool allow_sleep;
@@ -1367,6 +1368,7 @@ void mdm_hl7800_generate_status_events(void)
 	event_handler(HL7800_EVENT_BANDS, ictx.mdm_bands_string);
 	event_handler(HL7800_EVENT_ACTIVE_BANDS, ictx.mdm_active_bands_string);
 	event_handler(HL7800_EVENT_REVISION, ictx.mdm_revision);
+	event_handler(HL7800_EVENT_EDRX_PARAMETERS, &ictx.edrx_parameters);
 	hl7800_unlock();
 }
 
@@ -3597,6 +3599,79 @@ static bool on_cmd_network_report(struct net_buf **buf, uint16_t len)
 	return true;
 }
 
+/* Handler: +CEDRXRDP: or +CEDRXP:
+ * <AcT-type>[,<Requested_eDRX_value[,<NWprovided_eDRX_value>[,<Paging_time_window>]]]
+ */
+static bool on_cmd_edrx_parameters(struct net_buf **buf, uint16_t len)
+{
+	struct net_buf *frag = NULL;
+	int out_len;
+	char *location;
+	char rsp[MDM_MAX_RESP_SIZE];
+	const char EXAMPLE_RESPONSE[] = "4,\"0101\",\"0101\",\"0000\"";
+	const char DELIMITER[] = ",\"";
+
+	wait_for_modem_data_and_newline(buf, net_buf_frags_len(*buf),
+					strlen(EXAMPLE_RESPONSE));
+
+	net_buf_findcrlf(*buf, &frag);
+	if (!frag) {
+		LOG_ERR("Unable to find eDRX parameter end");
+		return true;
+	}
+
+	out_len = net_buf_linearize(rsp, MDM_MAX_RESP_SIZE - 1, *buf, 0, len);
+	rsp[out_len] = 0;
+	LOG_DBG("eDRX Parameters: %s length: %d", log_strdup(rsp), out_len);
+
+	memset(&ictx.edrx_parameters, 0, sizeof(ictx.edrx_parameters));
+	location = rsp;
+	ictx.edrx_parameters.access_technology_type = (uint8_t)strtoul(location, NULL, 10);
+	do {
+		/* Are all of the binary strings present? */
+		if (out_len < strlen(EXAMPLE_RESPONSE)) {
+			break;
+		}
+
+		location = strstr(location, DELIMITER);
+		if (location == NULL) {
+			break;
+		} else {
+			location += strlen(DELIMITER);
+			ictx.edrx_parameters.nibbles.requested = (uint8_t)strtoul(location, NULL, 2);
+		}
+
+		location = strstr(location, DELIMITER);
+		if (location == NULL) {
+			break;
+		} else {
+			location += strlen(DELIMITER);
+			ictx.edrx_parameters.nibbles.network_provided =
+				(uint8_t)strtoul(location, NULL, 2);
+		}
+
+		location = strstr(location, DELIMITER);
+		if (location == NULL) {
+			break;
+		} else {
+			location += strlen(DELIMITER);
+			ictx.edrx_parameters.nibbles.paging_time_window =
+				(uint8_t)strtoul(location, NULL, 2);
+		}
+
+		ictx.edrx_parameters.nibbles_valid = true;
+
+	} while (0);
+
+	event_handler(HL7800_EVENT_EDRX_PARAMETERS, &ictx.edrx_parameters);
+
+	if (ictx.edrx_parameters.access_technology_type == HL7800_EDRX_NOT_SUPPORTED) {
+		LOG_INF("eDRX not supported");
+	}
+
+	return true;
+}
+
 /* Handler: +KCELLMEAS: <RSRP>,<Downlink Path Loss>,<PUSCH Tx Power>,
  *                       <PUCCH Tx Power>,<SiNR>
  */
@@ -4491,12 +4566,14 @@ static void hl7800_rx(void)
 		CMD_HANDLER("+CFUN: ", modem_functionality),
 		CMD_HANDLER("%MEAS: ", survey_status),
 		CMD_HANDLER("+CCLK: ", rtc_query),
+		CMD_HANDLER("+CEDRXRDP: ", edrx_parameters),
 
 		/* UNSOLICITED modem information */
 		/* mobile startup report */
 		CMD_HANDLER("+KSUP: ", startup_report),
 		/* network status */
 		CMD_HANDLER("+CEREG: ", network_report),
+		CMD_HANDLER("+CEDRXP: ", edrx_parameters),
 
 		/* SOLICITED CMD AND SOCKET RESPONSES */
 		CMD_HANDLER("OK", sockok),
@@ -5251,14 +5328,15 @@ reboot:
 	/* Turn off PSM */
 	SEND_AT_CMD_EXPECT_OK("AT+CPSMS=0");
 
-	/* turn on eDRX */
+	/* Turn on eDRX with unsolicited results */
 	if (ictx.mdm_rat == MDM_RAT_CAT_NB1) {
-		edrx_act_type = 5;
+		edrx_act_type = HL7800_EDRX_NB_S1;
 	} else {
-		edrx_act_type = 4;
+		edrx_act_type = HL7800_EDRX_WB_S1;
 	}
-	snprintk(set_edrx_msg, sizeof(set_edrx_msg), "AT+CEDRXS=1,%d,\"%s\"",
+	snprintk(set_edrx_msg, sizeof(set_edrx_msg), "AT+CEDRXS=2,%d,\"%s\"",
 		 edrx_act_type, CONFIG_MODEM_HL7800_EDRX_VALUE);
+	SEND_AT_CMD_EXPECT_OK(set_edrx_msg);
 	SEND_AT_CMD_EXPECT_OK(set_edrx_msg);
 #endif
 	sleep = true;
