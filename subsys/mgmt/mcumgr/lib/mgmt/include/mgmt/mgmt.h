@@ -26,6 +26,9 @@ extern "C" {
 #define MGMT_OP_WRITE			2
 #define MGMT_OP_WRITE_RSP		3
 
+#define MGMT_RSP_OP(r) \
+	(((r) == MGMT_OP_READ) ? MGMT_OP_READ_RSP : MGMT_OP_WRITE_RSP)
+
 /**
  * The first 64 groups are reserved for system level mcumgr commands.
  * Per-user commands are then defined after group 64.
@@ -45,27 +48,29 @@ extern "C" {
 /**
  * mcumgr error codes.
  */
-#define MGMT_ERR_EOK			0
-#define MGMT_ERR_EUNKNOWN		1
-#define MGMT_ERR_ENOMEM			2
-#define MGMT_ERR_EINVAL			3
-#define MGMT_ERR_ETIMEOUT		4
-#define MGMT_ERR_ENOENT			5
-#define MGMT_ERR_EBADSTATE		6	/* Current state disallows command. */
-#define MGMT_ERR_EMSGSIZE		7	/* Too large for transport. */
-#define MGMT_ERR_ENOTSUP		8	/* Command not supported. */
-#define MGMT_ERR_ECORRUPT		9	/* Corrupt */
-#define MGMT_ERR_NO_CLIENT		10	/* Client handler not found */
-#define MGMT_ERR_DECODE			11
-#define MGMT_ERR_ENCODE			12
-#define MGMT_ERR_OFFSET			13
-#define MGMT_ERR_TRANSPORT		14
-#define MGMT_ERR_BUSY			15
-#define MGMT_ERR_WRITE			16	/* Can't write CBOR to transport */
-#define MGMT_ERR_OPEN			17
-#define MGMT_ERR_CLOSE			18
-#define MGMT_ERR_LENGTH_MISSING 19
-#define MGMT_ERR_EPERUSER		256
+#define MGMT_ERR_EOK					0
+#define MGMT_ERR_EUNKNOWN				1
+#define MGMT_ERR_ENOMEM					2
+#define MGMT_ERR_EINVAL					3
+#define MGMT_ERR_ETIMEOUT				4
+#define MGMT_ERR_ENOENT					5
+#define MGMT_ERR_EBADSTATE				6	/* Current state disallows command. */
+#define MGMT_ERR_EMSGSIZE				7	/* Too large for transport. */
+#define MGMT_ERR_ENOTSUP				8	/* Command not supported. */
+#define MGMT_ERR_ECORRUPT				9	/* Corrupt */
+#define MGMT_ERR_NO_CLIENT				10	/* Client handler not found */
+#define MGMT_ERR_DECODE					11
+#define MGMT_ERR_ENCODE					12
+#define MGMT_ERR_OFFSET					13
+#define MGMT_ERR_TRANSPORT				14
+#define MGMT_ERR_BUSY					15
+#define MGMT_ERR_WRITE					16	/* Can't write CBOR to transport */
+#define MGMT_ERR_OPEN					17
+#define MGMT_ERR_CLOSE					18
+#define MGMT_ERR_LENGTH_MISSING 		19
+#define MGMT_ERR_NOTIFICATION_TIMEOUT	20
+#define MGMT_ERR_NOTIFICATION_EXPECTED	21
+#define MGMT_ERR_EPERUSER				256
 
 #define MGMT_HDR_SIZE		8
 
@@ -79,6 +84,12 @@ extern "C" {
 #define MGMT_EVT_OP_CLIENT_STATUS		0x05
 #define MGMT_EVT_OP_CLIENT_DONE			0x06
 #define MGMT_EVT_OP_CMD_SENT			0x07
+
+/*
+ * MGMT event flags.
+ */
+#define MGMT_FLAG_NOTIFICATION			BIT(0)
+
 
 struct mgmt_hdr {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__

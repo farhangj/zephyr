@@ -30,26 +30,13 @@ smp_align4(int x)
 	}
 }
 
-/**
- * Converts a request opcode to its corresponding response opcode.
- */
-static uint8_t
-smp_rsp_op(uint8_t req_op)
-{
-	if (req_op == MGMT_OP_READ) {
-		return MGMT_OP_READ_RSP;
-	} else {
-		return MGMT_OP_WRITE_RSP;
-	}
-}
-
 static void
 smp_init_rsp_hdr(const struct mgmt_hdr *req_hdr, struct mgmt_hdr *rsp_hdr)
 {
 	*rsp_hdr = (struct mgmt_hdr) {
 		.nh_len = 0,
 		.nh_flags = 0,
-		.nh_op = smp_rsp_op(req_hdr->nh_op),
+		.nh_op = MGMT_RSP_OP(req_hdr->nh_op),
 		.nh_group = req_hdr->nh_group,
 		.nh_seq = req_hdr->nh_seq,
 		.nh_id = req_hdr->nh_id,

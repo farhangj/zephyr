@@ -272,9 +272,10 @@ mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg)
 		}
 	}
 
-	LOG_DBG("%s %s group: %u id: %u seq: %u status: %s", mgmt_get_string_operation(hdr->nh_op),
-		mgmt_get_string_event(opcode), hdr->nh_group, hdr->nh_id, hdr->nh_seq,
-		mgmt_get_string_err(status));
+	LOG_DBG("%s %s %s group: %u id: %u seq: %u status: %s",
+		(hdr->nh_flags & MGMT_FLAG_NOTIFICATION) ? "[Notification]" : "",
+		mgmt_get_string_operation(hdr->nh_op), mgmt_get_string_event(opcode), hdr->nh_group,
+		hdr->nh_id, hdr->nh_seq, mgmt_get_string_err(status));
 #endif
 
 	SYS_SLIST_FOR_EACH_NODE(&mgmt_event_callback_list, node) {
@@ -405,7 +406,7 @@ mgmt_get_string_err(int err)
 	case MGMT_ERR_ENOTSUP:
 		return "Command not supported";
 	case MGMT_ERR_ECORRUPT:
-		return "Corrupt ";
+		return "Corrupt";
 	case MGMT_ERR_NO_CLIENT:
 		return "Client handler not found";
 	case MGMT_ERR_DECODE:
@@ -426,6 +427,10 @@ mgmt_get_string_err(int err)
 		return "Unable to close transport";
 	case MGMT_ERR_LENGTH_MISSING:
 		return "Length missing from first chunk of file operation";
+	case MGMT_ERR_NOTIFICATION_TIMEOUT:
+		return "Notification Receive Timeout";
+	case MGMT_ERR_NOTIFICATION_EXPECTED:
+		return "Notification Expected";
 	default:
 		return "?";
 	}
