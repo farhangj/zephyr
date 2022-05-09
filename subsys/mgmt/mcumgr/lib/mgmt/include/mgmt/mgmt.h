@@ -8,6 +8,7 @@
 #define H_MGMT_MGMT_
 
 #include <inttypes.h>
+#include <sys/slist.h>
 #include "tinycbor/cbor.h"
 
 #ifdef __cplusplus
@@ -17,11 +18,13 @@ extern "C" {
 /* MTU for newtmgr responses */
 #define MGMT_MAX_MTU		1024
 
-/** Opcodes; encoded in first byte of header. */
-#define MGMT_OP_READ		0
-#define MGMT_OP_READ_RSP	1
-#define MGMT_OP_WRITE		2
-#define MGMT_OP_WRITE_RSP	3
+/** Opcodes; encoded in first byte of header.
+ * From client is even (command), from server is odd (response).
+ */
+#define MGMT_OP_READ			0
+#define MGMT_OP_READ_RSP		1
+#define MGMT_OP_WRITE			2
+#define MGMT_OP_WRITE_RSP		3
 
 /**
  * The first 64 groups are reserved for system level mcumgr commands.
@@ -42,30 +45,44 @@ extern "C" {
 /**
  * mcumgr error codes.
  */
-#define MGMT_ERR_EOK		0
-#define MGMT_ERR_EUNKNOWN	1
-#define MGMT_ERR_ENOMEM		2
-#define MGMT_ERR_EINVAL		3
-#define MGMT_ERR_ETIMEOUT	4
-#define MGMT_ERR_ENOENT		5
-#define MGMT_ERR_EBADSTATE	6	   /* Current state disallows command. */
-#define MGMT_ERR_EMSGSIZE	7	   /* Response too large. */
-#define MGMT_ERR_ENOTSUP	8	   /* Command not supported. */
-#define MGMT_ERR_ECORRUPT	9	   /* Corrupt */
-#define MGMT_ERR_EPERUSER	256
+#define MGMT_ERR_EOK			0
+#define MGMT_ERR_EUNKNOWN		1
+#define MGMT_ERR_ENOMEM			2
+#define MGMT_ERR_EINVAL			3
+#define MGMT_ERR_ETIMEOUT		4
+#define MGMT_ERR_ENOENT			5
+#define MGMT_ERR_EBADSTATE		6	/* Current state disallows command. */
+#define MGMT_ERR_EMSGSIZE		7	/* Too large for transport. */
+#define MGMT_ERR_ENOTSUP		8	/* Command not supported. */
+#define MGMT_ERR_ECORRUPT		9	/* Corrupt */
+#define MGMT_ERR_NO_CLIENT		10	/* Client handler not found */
+#define MGMT_ERR_DECODE			11
+#define MGMT_ERR_ENCODE			12
+#define MGMT_ERR_OFFSET			13
+#define MGMT_ERR_TRANSPORT		14
+#define MGMT_ERR_BUSY			15
+#define MGMT_ERR_WRITE			16	/* Can't write CBOR to transport */
+#define MGMT_ERR_OPEN			17
+#define MGMT_ERR_CLOSE			18
+#define MGMT_ERR_LENGTH_MISSING 19
+#define MGMT_ERR_EPERUSER		256
 
 #define MGMT_HDR_SIZE		8
 
 /*
  * MGMT event opcodes.
  */
-#define MGMT_EVT_OP_CMD_RECV	0x01
-#define MGMT_EVT_OP_CMD_STATUS	0x02
-#define MGMT_EVT_OP_CMD_DONE	0x03
+#define MGMT_EVT_OP_CMD_RECV			0x01
+#define MGMT_EVT_OP_CMD_STATUS			0x02
+#define MGMT_EVT_OP_CMD_DONE			0x03
+#define MGMT_EVT_OP_CLIENT_RECV			0x04
+#define MGMT_EVT_OP_CLIENT_STATUS		0x05
+#define MGMT_EVT_OP_CLIENT_DONE			0x06
+#define MGMT_EVT_OP_CMD_SENT			0x07
 
 struct mgmt_hdr {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	uint8_t  nh_op:3;		   /* MGMT_OP_[...] */
+	uint8_t  nh_op:3;		/* MGMT_OP_[...] */
 	uint8_t  _res1:5;
 #endif
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -81,11 +98,28 @@ struct mgmt_hdr {
 
 #define nmgr_hdr mgmt_hdr
 
+#define SET_NETWORK_HEADER(op, len, group, id) 	\
+	(struct mgmt_hdr) {					\
+		.nh_op = (op),					\
+		.nh_flags = 0,					\
+		.nh_len = htons(len),			\
+		.nh_group = htons(group),		\
+		.nh_seq = mgmt_get_sequence(),	\
+		.nh_id = (id)					\
+	}
+
 /*
  * MGMT_EVT_OP_CMD_STATUS argument
  */
 struct mgmt_evt_op_cmd_status_arg {
 	int status;
+};
+
+/*
+ * MGMT_EVT_OP_CMD_SENT argument
+ */
+struct mgmt_evt_op_cmd_sent_arg {
+	int err;			/* MGMT_ERR_[...] */
 };
 
 /*
@@ -101,11 +135,18 @@ struct mgmt_evt_op_cmd_done_arg {
  * This callback function is used to notify application about mgmt event.
  *
  * @param opcode	MGMT_EVT_OP_[...].
- * @param group		MGMT_GROUP_ID_[...].
- * @param id		Message ID within group.
+ * @param hdr		Management header
  * @param arg		Optional event argument.
  */
-typedef void (*mgmt_on_evt_cb)(uint8_t opcode, uint16_t group, uint8_t id, void *arg);
+typedef void (*mgmt_on_evt_cb)(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg);
+
+/**
+ * Linked List Entry
+ */
+struct mgmt_on_evt_cb_entry {
+	sys_snode_t node;
+	mgmt_on_evt_cb cb;
+};
 
 /** @typedef mgmt_alloc_rsp_fn
  * @brief Allocates a buffer suitable for holding a response.
@@ -219,6 +260,7 @@ struct mgmt_ctxt {
 	struct CborEncoder encoder;
 	struct CborParser parser;
 	struct CborValue it;
+	struct mgmt_hdr hdr;
 };
 
 /** @typedef mgmt_handler_fn
@@ -340,11 +382,18 @@ int mgmt_streamer_init_writer(struct mgmt_streamer *streamer, void *buf);
 void mgmt_streamer_free_buf(struct mgmt_streamer *streamer, void *buf);
 
 /**
- * @brief Registers a full command group.
+ * @brief Registers a full command group for the server.
  *
  * @param group The group to register.
  */
 void mgmt_register_group(struct mgmt_group *group);
+
+/**
+ * @brief Registers a full command group for the client.
+ *
+ * @param group The group to register.
+ */
+void mgmt_register_client_group(struct mgmt_group *group);
 
 /**
  * @brief Unregisters a full command group.
@@ -354,7 +403,7 @@ void mgmt_register_group(struct mgmt_group *group);
 void mgmt_unregister_group(struct mgmt_group *group);
 
 /**
- * @brief Finds a registered command handler.
+ * @brief Finds a registered command handler for the server.
  *
  * @param group_id	The group of the command to find.
  * @param command_id	The ID of the command to find.
@@ -363,6 +412,17 @@ void mgmt_unregister_group(struct mgmt_group *group);
  *		NULL on failure.
  */
 const struct mgmt_handler *mgmt_find_handler(uint16_t group_id, uint16_t command_id);
+
+/**
+ * @brief Finds a registered command handler for the client.
+ *
+ * @param group_id	The group of the command to find.
+ * @param command_id	The ID of the command to find.
+ *
+ * @return	The requested command handler on success;
+ *		NULL on failure.
+ */
+const struct mgmt_handler *mgmt_find_client_handler(uint16_t group_id, uint16_t command_id);
 
 /**
  * @brief Encodes a response status into the specified management context.
@@ -379,10 +439,12 @@ int mgmt_write_rsp_status(struct mgmt_ctxt *ctxt, int status);
  *
  * @param ctxt		The context object to initialize.
  * @param streamer	The streamer that will be used with the context.
+ * @param hdr		Management header for the message.
  *
  * @return 0 on success, MGMT_ERR_[...] code on failure.
  */
-int mgmt_ctxt_init(struct mgmt_ctxt *ctxt, struct mgmt_streamer *streamer);
+int mgmt_ctxt_init(struct mgmt_ctxt *ctxt, struct mgmt_streamer *streamer,
+		   const struct mgmt_hdr *hdr);
 
 /**
  * @brief Converts a CBOR status code to a MGMT_ERR_[...] code.
@@ -410,19 +472,83 @@ void mgmt_hton_hdr(struct mgmt_hdr *hdr);
 /**
  * @brief Register event callback function.
  *
- * @param cb Callback function.
+ * @param cb Callback linked list structure
+ * @return  0 on success, MGMT_ERR_[...] code on failure.
  */
-void mgmt_register_evt_cb(mgmt_on_evt_cb cb);
+int mgmt_register_evt_cb(struct mgmt_on_evt_cb_entry *entry);
 
 /**
  * @brief This function is called to notify about mgmt event.
  *
  * @param opcode	MGMT_EVT_OP_[...].
- * @param group		MGMT_GROUP_ID_[...].
- * @param id		Message ID within group.
+ * @param hdr		The mcumgr header
  * @param arg		Optional event argument.
  */
-void mgmt_evt(uint8_t opcode, uint16_t group, uint8_t id, void *arg);
+void mgmt_evt(uint8_t opcode, const struct mgmt_hdr *hdr, void *arg);
+
+/** @typedef mgmt_seq_cb
+ *
+ * @param sequence	Number of message about to be sent by client.
+ */
+typedef void *(mgmt_seq_cb)(uint8_t sequence);
+
+/**
+ * @brief Get sequence number for management client command
+ *
+ * @return uint8_t	sequence number
+ */
+uint8_t mgmt_get_sequence(void);
+
+/**
+ * @brief Generate an event when a command is sent
+ *
+ * @param nwk_hdr	header in network format
+ * @param err		MGMT_ERR_[...] code
+ */
+void mgmt_generate_cmd_sent_event(struct mgmt_hdr *nwk_hdr, int err);
+
+/**
+ * @brief Use header to determine if a message is a command or a response.
+ *
+ * @param hdr 		management header
+ * @return true 	from client (cmd)
+ * @return false 	from server (response)
+ */
+bool is_cmd(const struct mgmt_hdr *hdr);
+
+/**
+ * @brief Get string representation of management operation
+ *
+ * @param operation
+ * @return const char*
+ */
+const char *mgmt_get_string_operation(uint8_t operation);
+
+/**
+ * @brief Get string representation of management group
+ *
+ * @param group
+ * @return const char*
+ */
+const char *mgmt_get_string_group(uint16_t group);
+
+/**
+ * @brief Get string representation of management error
+ *
+ * @param err
+ * @return const char*
+ */
+const char *mgmt_get_string_err(int err);
+
+/**
+ * @brief Get string representation of management event
+ * @note Defind as week so it can be overridden in application.
+ *
+ * @param event
+ * @return const char*
+ */
+const char *mgmt_get_string_event(uint8_t event);
+
 
 #ifdef __cplusplus
 }

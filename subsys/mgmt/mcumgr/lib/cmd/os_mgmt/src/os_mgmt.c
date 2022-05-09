@@ -3,6 +3,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <logging/log.h>
+LOG_MODULE_REGISTER(os_mgmt, CONFIG_MGMT_OS_LOG_LEVEL);
 
 #include <sys/util.h>
 #include <assert.h>

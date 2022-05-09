@@ -9,11 +9,11 @@
 
 #define MCUMGR_BUF_SIZE         CONFIG_MCUMGR_BUF_SIZE
 
-/* File chunk needs to fit into MCUGMR_BUF_SZIE with all required headers
+/* File chunk needs to fit into MCUMGR_BUF_SIZE with all required headers
  * and other data fields; following information takes space off the
  * MCUMGR_BUF_SIZE, N is CONFIG_FS_MGMT_MAX_OFFSET_LEN
  *  MGMT_HDR_SIZE - header that is placed in front of buffer and not
- *	visible for cbod encoder (see smp_handle_single_req);
+ *	visible for cbor encoder (see smp_handle_single_req);
  *  9 + 1 -- bytes taken by definition of CBOR undefined length map and map
  *	terminator (break) character;
  *  1 + strlen("off") + [1, N] -- CBOR encoded pair of "off" marker and

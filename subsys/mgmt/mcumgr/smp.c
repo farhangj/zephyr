@@ -11,6 +11,7 @@
 #include "mgmt/mcumgr/buf.h"
 #include "smp/smp.h"
 #include "mgmt/mcumgr/smp.h"
+#include "mgmt/endian.h"
 
 static const struct mgmt_streamer_cfg zephyr_smp_cbor_cfg;
 
@@ -56,7 +57,7 @@ zephyr_smp_trim_front(void *buf, size_t len, void *arg)
 
 /**
  * Splits an appropriately-sized fragment from the front of a net_buf, as
- * neeeded.  If the length of the net_buf is greater than specified maximum
+ * needed.  If the length of the net_buf is greater than specified maximum
  * fragment size, a new net_buf is allocated, and data is moved from the source
  * net_buf to the new net_buf.  If the net_buf is small enough to fit in a
  * single fragment, the source net_buf is returned unmodified, and the supplied
@@ -165,39 +166,67 @@ zephyr_smp_free_buf(void *buf, void *arg)
 }
 
 static int
-zephyr_smp_tx_rsp(struct smp_streamer *ns, void *rsp, void *arg)
+zephyr_smp_tx(struct smp_streamer *ns, void *rsp, void *arg)
 {
 	struct zephyr_smp_transport *zst;
 	struct net_buf *frag;
 	struct net_buf *nb;
 	uint16_t mtu;
 	int rc;
+	int mgmt_err;
 	int i;
 
 	zst = arg;
 	nb = rsp;
 
-	mtu = zst->zst_get_mtu(rsp);
-	if (mtu == 0U) {
-		/* The transport cannot support a transmission right now. */
-		return MGMT_ERR_EUNKNOWN;
-	}
-
-	i = 0;
-	while (nb != NULL) {
-		frag = zephyr_smp_split_frag(&nb, zst, mtu);
-		if (frag == NULL) {
-			zephyr_smp_free_buf(nb, zst);
-			return MGMT_ERR_ENOMEM;
+	do {
+		mtu = zst->zst_get_mtu(rsp);
+		if (mtu == 0U) {
+			/* The transport cannot support a transmission right now. */
+			mgmt_err = MGMT_ERR_TRANSPORT;
+			break;
 		}
 
-		rc = zst->zst_output(zst, frag);
-		if (rc != 0) {
-			return MGMT_ERR_EUNKNOWN;
+		if (nb->len > mtu) {
+			/* The size of the message is too large for the transport. */
+			mgmt_err = MGMT_ERR_EMSGSIZE;
+			break;
 		}
-	}
 
-	return 0;
+		if (zst->zst_open != NULL) {
+			rc = zst->zst_open();
+			if (rc != 0) {
+				mgmt_err = MGMT_ERR_OPEN;
+				break;
+			}
+		}
+
+		i = 0;
+		mgmt_err = 0;
+		while (nb != NULL) {
+			frag = zephyr_smp_split_frag(&nb, zst, mtu);
+			if (frag == NULL) {
+				mgmt_err = MGMT_ERR_ENOMEM;
+				break;
+			}
+
+			rc = zst->zst_output(zst, frag);
+			if (rc != 0) {
+				mgmt_err = MGMT_ERR_EUNKNOWN;
+				break;
+			}
+		}
+
+		if (zst->zst_close != NULL) {
+			rc = zst->zst_close();
+			if (rc != 0) {
+				mgmt_err = MGMT_ERR_CLOSE;
+				break;
+			}
+		}
+	} while (0);
+
+	return mgmt_err;
 }
 
 static int
@@ -243,10 +272,10 @@ zephyr_smp_process_packet(struct zephyr_smp_transport *zst,
 			.writer = &writer.enc,
 			.cb_arg = zst,
 		},
-		.tx_rsp_cb = zephyr_smp_tx_rsp,
+		.tx_cb = zephyr_smp_tx,
 	};
 
-	rc = smp_process_request_packet(&streamer, nb);
+	rc = smp_process_packet(&streamer, nb);
 	return rc;
 }
 
@@ -262,7 +291,7 @@ zephyr_smp_handle_reqs(struct k_work *work)
 	zst = (void *)work;
 
 	while ((nb = net_buf_get(&zst->zst_fifo, K_NO_WAIT)) != NULL) {
-		zephyr_smp_process_packet(zst, nb);
+		(void)zephyr_smp_process_packet(zst, nb);
 	}
 }
 
@@ -288,6 +317,8 @@ zephyr_smp_transport_init(struct zephyr_smp_transport *zst,
 		.zst_get_mtu = get_mtu_func,
 		.zst_ud_copy = ud_copy_func,
 		.zst_ud_free = ud_free_func,
+		.zst_open = NULL,
+		.zst_close = NULL
 	};
 
 	k_work_init(&zst->zst_work, zephyr_smp_handle_reqs);
@@ -299,4 +330,61 @@ zephyr_smp_rx_req(struct zephyr_smp_transport *zst, struct net_buf *nb)
 {
 	net_buf_put(&zst->zst_fifo, nb);
 	k_work_submit(&zst->zst_work);
+}
+
+int
+zephyr_smp_tx_cmd(struct zephyr_smp_transport *zst, struct mgmt_hdr *cmd_hdr,
+		      const void *cbor_data)
+{
+	struct cbor_nb_writer writer;
+	struct smp_streamer streamer;
+	void *cmd;
+	int rc;
+
+	if (!zst || !cmd_hdr || !cbor_data || cmd_hdr->nh_len == 0) {
+		return MGMT_ERR_EINVAL;
+	}
+
+	streamer = (struct smp_streamer) {
+		.mgmt_stmr = {
+			.cfg = &zephyr_smp_cbor_cfg,
+			.reader = NULL,
+			.writer = &writer.enc,
+			.cb_arg = zst,
+		},
+		.tx_cb = zephyr_smp_tx,
+	};
+
+	do {
+		cmd = NULL;
+		cmd = mgmt_streamer_alloc_rsp(&streamer.mgmt_stmr, cmd);
+		if (cmd == NULL) {
+			rc = MGMT_ERR_ENOMEM;
+			break;
+		}
+
+		rc = mgmt_streamer_init_writer(&streamer.mgmt_stmr, cmd);
+		if (rc != 0) {
+			break;
+		}
+
+		rc = writer.enc.write(&writer.enc, (const char *)cmd_hdr, sizeof(*cmd_hdr));
+		if (rc != 0) {
+			rc = mgmt_err_from_cbor(rc);
+			break;
+		}
+
+		rc = writer.enc.write(&writer.enc, cbor_data, ntohs(cmd_hdr->nh_len));
+		if (rc != 0) {
+			rc = mgmt_err_from_cbor(rc);
+			break;
+		}
+
+		rc = streamer.tx_cb(&streamer, cmd, streamer.mgmt_stmr.cb_arg);
+		mgmt_generate_cmd_sent_event(cmd_hdr, rc);
+
+	} while(0);
+
+	mgmt_streamer_free_buf(&streamer.mgmt_stmr, cmd);
+	return rc;
 }

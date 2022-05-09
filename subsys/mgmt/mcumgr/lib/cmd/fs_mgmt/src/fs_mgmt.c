@@ -3,6 +3,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <logging/log.h>
+LOG_MODULE_REGISTER(fs_mgmt, CONFIG_MCUMGR_CMD_FS_LOG_LEVEL);
 
 #include <limits.h>
 #include <string.h>
@@ -73,6 +75,9 @@ fs_mgmt_file_download(struct mgmt_ctxt *ctxt)
 	}
 
 	/* Read the requested chunk from the file. */
+	/* todo: This needs to be computed from the transport MTU or all transports
+	 * need to have the same MTU
+	 */
 	rc = fs_mgmt_impl_read(path, off, FS_MGMT_DL_CHUNK_SIZE,
 						   file_data, &bytes_read);
 	if (rc != 0) {

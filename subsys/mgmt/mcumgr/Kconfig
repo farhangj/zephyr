@@ -40,6 +40,17 @@ config MGMT_CBORATTR_FLOAT_SUPPORT
 	  Disabling the option slightly reduces code footprint.
 
 menu "Command Handlers"
+
+menuconfig MCUMGR_CLIENT_FS_MGMT
+	bool "Enable mcumgr client for file management"
+
+if MCUMGR_CLIENT_FS_MGMT
+module=MCUMGR_CLIENT_FS
+module-dep=LOG
+module-str=MCUMGR_CLIENT_FS
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+endif
+
 menuconfig MCUMGR_CMD_FS_MGMT
 	bool "Enable mcumgr handlers for file management (insecure)"
 	depends on FILE_SYSTEM
@@ -52,6 +63,13 @@ menuconfig MCUMGR_CMD_FS_MGMT
 	  discouraged.
 
 if MCUMGR_CMD_FS_MGMT
+module=MCUMGR_CMD_FS
+module-dep=LOG
+module-str=MCUMGR_CMD_FS
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+endif
+
+if MCUMGR_CMD_FS_MGMT || MCUMGR_CLIENT_FS_MGMT
 
 choice FS_MGMT_MAX_FILE_SIZE
 	prompt "Maximum file size that could be uploaded/downloaded"
@@ -227,7 +245,13 @@ menuconfig MCUMGR_CMD_OS_MGMT
 	help
 	  Enables mcumgr handlers for OS management
 
+module=MGMT_OS
+module-dep=LOG
+module-str=MGMT_OS
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
 if MCUMGR_CMD_OS_MGMT
+
 config OS_MGMT_RESET_MS
 	int "Delay before executing reset command (ms)"
 	default 250
@@ -258,6 +282,30 @@ endif
 config OS_MGMT_ECHO
 	bool "Support for echo command"
 	default y
+endif
+
+menuconfig MCUMGR_CLIENT_OS_MGMT
+	bool "Enable mcumgr client handlers for OS management"
+	depends on ZCBOR
+	depends on ZCBOR_MGMT
+
+module=MGMT_CLIENT_OS
+module-dep=LOG
+module-str=MGMT_CLIENT_OS
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+if MCUMGR_CLIENT_OS_MGMT
+
+config OS_MGMT_CLIENT_ECHO
+	bool "Support for echo command"
+	default y
+
+config OS_MGMT_CLIENT_TASKSTAT
+	bool "Support for taskstat command"
+
+config OS_MGMT_CLIENT_RESET
+	bool "Support for taskstat command"
+
 endif
 
 
@@ -557,4 +605,11 @@ config MCUMGR_BUF_USER_DATA_SIZE
 	  Different mcumgr transports impose different requirements for this
 	  setting. A value of 4 is sufficient for UART, shell, and bluetooth.
 	  For UDP, the userdata must be large enough to hold a IPv4/IPv6 address.
+
+config MCUMGR_CLIENT
+	bool "Enable MCUMGR Client"
+
+config MCUMGR_STATUS_STRINGS
+	bool "Enable generation of managment status strings"
+
 endif # MCUMGR

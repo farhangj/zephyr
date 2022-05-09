@@ -1,0 +1,10 @@
+
+result_code = int
+
+echo_cmd  = {
+    "d" : tstr
+}
+
+echo_rsp  = {
+    "r" : tstr
+}
