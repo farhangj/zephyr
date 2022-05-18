@@ -491,6 +491,8 @@ int fs_mgmt_client_upload_file(struct zephyr_smp_transport *transport, const cha
 	fs_ctx.offset = *offset;
 	fs_ctx.size = size;
 	fs_ctx.chunk_size = MIN(size, adjusted_mtu);
+    //for now cap this off at 1KB max, openthread fails somewhere above this
+    fs_ctx.chunk_size = MIN(fs_ctx.chunk_size, 1024);
 	fs_ctx.name = name;
 	fs_ctx.data = 0;
 	fs_ctx.local_name = local_name;
