@@ -319,8 +319,8 @@ zephyr_smp_transport_init(struct zephyr_smp_transport *zst,
 		.zst_ud_copy = ud_copy_func,
 		.zst_ud_free = ud_free_func,
 		.zst_open = NULL,
-		.zst_close = NULL
-		.zst_get_dest_info = get_dest_info_func,
+		.zst_close = NULL,
+		.zst_get_dest_info = get_dest_info_func
 	};
 
 	k_work_init(&zst->zst_work, zephyr_smp_handle_reqs);
