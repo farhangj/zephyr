@@ -187,12 +187,6 @@ zephyr_smp_tx(struct smp_streamer *ns, void *rsp, void *arg)
 			break;
 		}
 
-		if (nb->len > mtu) {
-			/* The size of the message is too large for the transport. */
-			mgmt_err = MGMT_ERR_EMSGSIZE;
-			break;
-		}
-
 		if (zst->zst_open != NULL) {
 			rc = zst->zst_open();
 			if (rc != 0) {

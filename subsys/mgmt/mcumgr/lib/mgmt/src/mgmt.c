@@ -18,10 +18,10 @@ static sys_slist_t mgmt_event_callback_list;
 static struct mgmt_group *server_list_head;
 static struct mgmt_group *server_list_end;
 
-static struct mgmt_group *client_list_head;
-static struct mgmt_group *client_list_end;
 
 #ifdef CONFIG_MCUMGR_CLIENT
+static struct mgmt_group *client_list_head;
+static struct mgmt_group *client_list_end;
 static atomic_t mgmt_sequence = ATOMIC_INIT(0);
 #endif
 
@@ -103,13 +103,12 @@ mgmt_find_group(uint16_t group_id, uint16_t command_id, bool client)
 {
 	struct mgmt_group *group;
 
+    group = NULL;
 	if (client) {
-        	group = client_list_head;
 		#ifdef CONFIG_MCUMGR_CLIENT
-		#else
+        	group = client_list_head;
 		#endif
 	} else {
-	        group = NULL;
 		group = server_list_head;
 	}
 

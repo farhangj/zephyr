@@ -43,7 +43,7 @@ static void fs_mgmt_event_callback(uint8_t event, const struct mgmt_hdr *hdr, vo
 /* should this be based on/read from transport? */
 /* no, server side could be busy */
 /* queryable parameter */
-#define CONFIG_FS_CMD_TIMEOUT_MS 2000
+#define CONFIG_FS_CMD_TIMEOUT_MS 8000
 
 #define BUILD_NETWORK_HEADER(op, len, id) SET_NETWORK_HEADER(op, len, MGMT_GROUP_ID_FS, id)
 
